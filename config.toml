@@ -1,0 +1,14 @@
+azone_pool = [
+  "cn-beijing-h",
+  "cn-beijing-g",
+  "cn-beijing-f",
+]
+
+[container]
+container_path = '/home/cheshi/mirror/containers/avocado_scheduler'
+container_pool = ["ac1", "ac2", "ac3", "ac4"]
+
+[image]
+image_name = "redhat_8_5_x64_20G_alibase_20211117_copied.qcow2"
+source_image_name = "redhat_8_5_x64_20G_alibase_20211117.qcow2"
+source_image_region = "cn-hangzhou"
