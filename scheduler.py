@@ -31,6 +31,8 @@ class ContainerMaster():
     def __init__(self, config={}):
         container_path = config.get('container_path', '/tmp')
         container_pool = config.get('container_pool', [])
+        container_image = config.get('container_image')
+
         for container_name in container_pool:
             # check the status
             _path = os.path.join(container_path, container_name)
@@ -42,6 +44,7 @@ class ContainerMaster():
 
         self.container_path = container_path
         self.container_pool = container_pool
+        self.container_image = container_image
 
     def list_all_containers(self):
         return self.container_pool
@@ -67,6 +70,46 @@ class ContainerMaster():
         else:
             LOG.debug('No available container left.')
             return None
+
+    def run_test(self, container_name):
+        # Prepare environment
+        container_data_path = os.path.join(
+            self.container_path, container_name, 'data')
+        container_result_path = os.path.join(
+            self.container_path, container_name, 'job-results')
+        
+        os.makedirs(container_data_path, exist_ok=True)
+        os.makedirs(container_result_path, exist_ok=True)
+        
+        subprocess.run(
+            f'chcon -R -u system_u -t svirt_sandbox_file_t {self.container_path}', shell=True)
+
+        # Execute the test
+        LOG.info(f'Run test in container "{container_name}"...')
+        cmd = f'podman run --name {container_name} --rm -it \
+            -v {container_data_path}:/data:rw \
+            -v {container_result_path}:/root/avocado/job-results:rw \
+            {self.container_image} /bin/bash ./container/bin/test_alibaba.sh'
+
+        test_result = subprocess.run(cmd, shell=True)
+
+        # Postprocess the logs
+        LOG.info('Postprocessing logs...')
+        os.makedirs(os.path.join(container_result_path,
+                    'latest', 'testinfo'), exist_ok=True)
+        shutil.copy(os.path.join(container_data_path, 'alibaba_common.yaml'), os.path.join(
+            container_result_path, 'latest', 'testinfo', 'alibaba_common.yaml'))
+        shutil.copy(os.path.join(container_data_path, 'alibaba_testcases.yaml'), os.path.join(
+            container_result_path, 'latest', 'testinfo', 'alibaba_testcases.yaml'))
+        shutil.copy(os.path.join(container_data_path, 'alibaba_flavors.yaml'), os.path.join(
+            container_result_path, 'latest', 'testinfo', 'alibaba_flavors.yaml'))
+
+        if test_result.returncode == 0:
+            LOG.info('Test succeed in container "{container_name}".')
+            return 0
+        else:
+            LOG.warning('Test failed in container "{container_name}".')
+            return 1
 
 
 class ConfigAssistant():
@@ -104,6 +147,9 @@ class ConfigAssistant():
         res = subprocess.run(cmd, shell=True)
         if res.returncode > 0:
             LOG.error('Failed to provison flavor data.')
+            return 1
+
+        return 0
 
 
 class AvocadoScheduler():
@@ -136,15 +182,32 @@ class AvocadoScheduler():
         else:
             LOG.debug(f'image: {image}')
 
+        self.container = container
+        self.log_path = self.config.get(
+            'log_path', os.path.join(self.container_path, 'logs'))
+
+    def run(self):
+
         # Get container
-        cm = ContainerMaster(container)
-        c = cm.get_available_container()
-        LOG.debug(c)
+        container_master = ContainerMaster(self.container)
+        container = container_master.get_available_container()
 
         # Provision data
-        ca = ConfigAssistant(container_path=self.config.get(
-            'container', {}).get('container_path', '/tmp'))
-        ca.provision_data(c, 'ecs.g5.xlarge')
+        container_path = self.container.get('container_path', '/tmp')
+
+        config_assistant = ConfigAssistant(container_path=container_path)
+        config_assistant.provision_data(container, 'ecs.g5.xlarge')
+
+        # Run test
+        container_master.run_test(container)
+
+        # Collect the logs
+        result_path = os.path.join(container_path,
+                                   container, 'job-results')
+        for dirname in os.listdir(result_path):
+            if not dirname.startswith('job-'):
+                shutil.move(os.path.join(result_path, dirname),
+                            os.path.join(self.log_path, dirname))
 
         return None
 

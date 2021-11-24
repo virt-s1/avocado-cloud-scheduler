@@ -3,8 +3,10 @@ azone_pool = [
   "cn-beijing-g",
   "cn-beijing-f",
 ]
+log_path='/home/cheshi/mirror/containers/avocado_scheduler/logs'
 
 [container]
+container_image = "avocado-cloud:latest"
 container_path = '/home/cheshi/mirror/containers/avocado_scheduler'
 container_pool = ["ac1", "ac2", "ac3", "ac4"]
 
