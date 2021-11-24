@@ -1,12 +1,12 @@
 #!/bin/bash
 
-# Description: Creat VSwitch and SGroup for the specified region.
+# Description: Creat VSwitches for the specified region.
 # Maintainer: Charles Shih <schrht@gmail.com>
 
 set -e
 
 function show_usage() {
-    echo "Creat VSwitch and SGroup for the specified region." >&2
+    echo "Creat VSwitches for the specified region." >&2
     echo "$(basename $0) [-h] <-r region>" >&2
 }
 
