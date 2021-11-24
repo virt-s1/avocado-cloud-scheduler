@@ -8,6 +8,7 @@ import logging
 import toml
 import os
 import subprocess
+import shutil
 
 LOG = logging.getLogger(__name__)
 logging.basicConfig(level=logging.DEBUG, format='%(levelname)s: %(message)s')
@@ -71,10 +72,38 @@ class ContainerMaster():
 class ConfigAssistant():
     """Provision config for avocado-cloud testing."""
 
-    def __init__(self, config={}):
-        pass
+    def __init__(self, container_path='/tmp', template_path='./templates', utils_path='./utils'):
+        self.container_path = container_path
+        self.template_path = template_path
+        self.utils_path = utils_path
 
-    
+    def _copy_default_data(self, container_name):
+        container_data_path = os.path.join(
+            self.container_path, container_name, 'data')
+
+        LOG.debug(f'Copying default data into {container_data_path}')
+        os.makedirs(container_data_path, exist_ok=True)
+        shutil.copy(os.path.join(self.template_path, 'alibaba_common.yaml'), os.path.join(
+            container_data_path, 'alibaba_common.yaml'))
+        shutil.copy(os.path.join(self.template_path, 'alibaba_testcases.yaml'), os.path.join(
+            container_data_path, 'alibaba_testcases.yaml'))
+        shutil.copy(os.path.join(self.template_path, 'alibaba_flavors.yaml'), os.path.join(
+            container_data_path, 'alibaba_flavors.yaml'))
+
+    def provision_data(self, container_name, flavor):
+        self._copy_default_data(container_name)
+
+        container_data_path = os.path.join(
+            self.container_path, container_name, 'data')
+
+        # Provision flavor data
+        exec = os.path.join(self.utils_path, 'provision_flavor_data.sh')
+        file = os.path.join(container_data_path, 'alibaba_flavors.yaml')
+        cmd = f'{exec} {flavor} {file}'
+
+        res = subprocess.run(cmd, shell=True)
+        if res.returncode > 0:
+            LOG.error('Failed to provison flavor data.')
 
 
 class AvocadoScheduler():
@@ -113,21 +142,14 @@ class AvocadoScheduler():
         LOG.debug(c)
 
         # Provision data
-        exit(1)
-
-        flavors = ARGS.flavors or self.config.get('flavors')
-        if isinstance(flavors, str):
-            self.flavors = flavors.split(' ')
-        elif isinstance(flavors, list):
-            self.flavors = flavors
-        else:
-            logging.error('Can not get FLAVORS.')
-            exit(1)
+        ca = ConfigAssistant(container_path=self.config.get(
+            'container', {}).get('container_path', '/tmp'))
+        ca.provision_data(c, 'ecs.g5.xlarge')
 
         return None
 
+
 if __name__ == '__main__':
     scheduler = AvocadoScheduler(ARGS)
-    scheduler.show_vars()
 
 exit(0)
