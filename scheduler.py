@@ -15,12 +15,13 @@ logging.basicConfig(level=logging.DEBUG, format='%(levelname)s: %(message)s')
 
 ARG_PARSER = argparse.ArgumentParser(description="Schedule containerized \
 avocado-cloud tests for Alibaba Cloud.")
-ARG_PARSER.add_argument('--config',
-                        dest='config',
-                        action='store',
-                        help='The toml file for the scheduler configuration.',
-                        default='./config.toml',
-                        required=False)
+ARG_PARSER.add_argument(
+    '--config',
+    dest='config',
+    action='store',
+    help='The toml file for the scheduler configuration.',
+    default='./config.toml',
+    required=False)
 
 ARGS = ARG_PARSER.parse_args()
 
@@ -52,7 +53,8 @@ class ContainerMaster():
     def list_available_containers(self):
         available_containers = []
         for container_name in self.container_pool:
-            cmd = f'podman ps -a --format "{{{{.Names}}}}" | grep -q -x {container_name}'
+            cmd = f'podman ps -a --format "{{{{.Names}}}}" \
+                | grep -q -x {container_name}'
             res = subprocess.run(cmd, shell=True)
             LOG.debug(res)
             if res.returncode > 0:
@@ -77,12 +79,12 @@ class ContainerMaster():
             self.container_path, container_name, 'data')
         container_result_path = os.path.join(
             self.container_path, container_name, 'job-results')
-        
+
         os.makedirs(container_data_path, exist_ok=True)
         os.makedirs(container_result_path, exist_ok=True)
-        
-        subprocess.run(
-            f'chcon -R -u system_u -t svirt_sandbox_file_t {self.container_path}', shell=True)
+
+        subprocess.run(f'chcon -R -u system_u -t svirt_sandbox_file_t \
+            {self.container_path}', shell=True)
 
         # Execute the test
         LOG.info(f'Run test in container "{container_name}"...')
@@ -97,12 +99,15 @@ class ContainerMaster():
         LOG.info('Postprocessing logs...')
         os.makedirs(os.path.join(container_result_path,
                     'latest', 'testinfo'), exist_ok=True)
-        shutil.copy(os.path.join(container_data_path, 'alibaba_common.yaml'), os.path.join(
-            container_result_path, 'latest', 'testinfo', 'alibaba_common.yaml'))
-        shutil.copy(os.path.join(container_data_path, 'alibaba_testcases.yaml'), os.path.join(
-            container_result_path, 'latest', 'testinfo', 'alibaba_testcases.yaml'))
-        shutil.copy(os.path.join(container_data_path, 'alibaba_flavors.yaml'), os.path.join(
-            container_result_path, 'latest', 'testinfo', 'alibaba_flavors.yaml'))
+        shutil.copy(os.path.join(container_data_path, 'alibaba_common.yaml'),
+                    os.path.join(container_result_path, 'latest', 'testinfo',
+                                 'alibaba_common.yaml'))
+        shutil.copy(os.path.join(container_data_path, 'alibaba_testcases.yaml'),
+                    os.path.join(container_result_path, 'latest', 'testinfo',
+                    'alibaba_testcases.yaml'))
+        shutil.copy(os.path.join(container_data_path, 'alibaba_flavors.yaml'),
+                    os.path.join(container_result_path, 'latest', 'testinfo',
+                    'alibaba_flavors.yaml'))
 
         if test_result.returncode == 0:
             LOG.info('Test succeed in container "{container_name}".')
@@ -115,7 +120,8 @@ class ContainerMaster():
 class ConfigAssistant():
     """Provision config for avocado-cloud testing."""
 
-    def __init__(self, container_path='/tmp', template_path='./templates', utils_path='./utils'):
+    def __init__(self, container_path='/tmp', template_path='./templates',
+                 utils_path='./utils'):
         self.container_path = container_path
         self.template_path = template_path
         self.utils_path = utils_path
@@ -126,12 +132,12 @@ class ConfigAssistant():
 
         LOG.debug(f'Copying default data into {container_data_path}')
         os.makedirs(container_data_path, exist_ok=True)
-        shutil.copy(os.path.join(self.template_path, 'alibaba_common.yaml'), os.path.join(
-            container_data_path, 'alibaba_common.yaml'))
-        shutil.copy(os.path.join(self.template_path, 'alibaba_testcases.yaml'), os.path.join(
-            container_data_path, 'alibaba_testcases.yaml'))
-        shutil.copy(os.path.join(self.template_path, 'alibaba_flavors.yaml'), os.path.join(
-            container_data_path, 'alibaba_flavors.yaml'))
+        shutil.copy(os.path.join(self.template_path, 'alibaba_common.yaml'),
+                    os.path.join(container_data_path, 'alibaba_common.yaml'))
+        shutil.copy(os.path.join(self.template_path, 'alibaba_testcases.yaml'),
+                    os.path.join(container_data_path, 'alibaba_testcases.yaml'))
+        shutil.copy(os.path.join(self.template_path, 'alibaba_flavors.yaml'),
+                    os.path.join(container_data_path, 'alibaba_flavors.yaml'))
 
     def provision_data(self, container_name, flavor):
         self._copy_default_data(container_name)
