@@ -9,6 +9,7 @@ import toml
 import os
 import subprocess
 import shutil
+import random
 
 LOG = logging.getLogger(__name__)
 logging.basicConfig(level=logging.DEBUG, format='%(levelname)s: %(message)s')
@@ -67,8 +68,9 @@ class ContainerMaster():
         available_containers = self.list_available_containers()
 
         if len(available_containers) > 0:
-            LOG.debug(f'Got container "{available_containers[0]}"')
-            return available_containers[0]
+            container = available_containers[0]
+            LOG.debug(f'Got container "{container}"')
+            return container
         else:
             LOG.debug('No available container left.')
             return None
@@ -158,6 +160,54 @@ class ConfigAssistant():
         return 0
 
 
+class CloudMaster():
+    """Manage the cloud resources."""
+
+    def __init__(self):
+        # Query all available flavors in the cloud
+        FLAVOR_DISTRIBUTION = '/tmp/aliyun_flavor_distribution.tmp'
+        if not os.path.exists(FLAVOR_DISTRIBUTION):
+            exec = os.path.join(self.utils_path, 'query_flavors.sh')
+            cmd = f'{exec} -o {FLAVOR_DISTRIBUTION}'
+            subprocess.run(cmd, shell=True)
+
+        with open(FLAVOR_DISTRIBUTION, 'r') as f:
+            _list = f.readlines()
+
+        location = {}
+        for _entry in _list:
+            _entry = _entry.strip().split(',')
+            _azone = _entry[0]
+            _flavor = _entry[1]
+
+            if _flavor in location:
+                location[_flavor].append(_azone)
+            else:
+                location[_flavor] = [_azone]
+
+        #LOG.debug(f'flavor location: {location}')
+        self.location = location
+
+    def list_possible_azones(self, flavor):
+        possible_azones = self.location.get(flavor, [])
+        LOG.debug(f'possible_azones: {possible_azones}')
+        return possible_azones
+
+    def get_available_azone(self, flavor):
+        # Get possible AZs (all the AZs with the flavor in stock)
+        possible_azones = self.list_possible_azones(flavor)
+        if not possible_azones:
+            LOG.error(f'Flavor "{flavor}" is NoStock.')
+            return 1
+
+        idx = random.randint(0, len(possible_azones)-1)
+        available_azone = possible_azones[idx]
+        LOG.info(
+            f'Randomly picked AZ "{available_azone}" for flavor "{flavor}".')
+
+        return available_azone
+
+
 class AvocadoScheduler():
     """Schedule containerized avocado-cloud tests for Alibaba Cloud."""
 
@@ -191,12 +241,18 @@ class AvocadoScheduler():
         container_path = container.get('container_path', '/tmp')
         self.container_master = ContainerMaster(container)
         self.config_assistant = ConfigAssistant(
-            container_path=container_path)
+            container_path=container_path, utils_path='./utils')
+        self.cloud_master = CloudMaster()
 
         self.container = container
         self.container_path = container_path
         self.log_path = self.config.get(
             'log_path', os.path.join(container_path, 'logs'))
+        self.utils_path = './utils'
+
+    def _get_azone(self, flavor, azone_pool=[], in_used_azones=[]):
+        """Get an available AZone for the specified flavor."""
+        return self.cloud_master.get_available_azone(flavor)
 
     def _get_container(self):
         return self.container_master.get_available_container()
@@ -218,6 +274,8 @@ class AvocadoScheduler():
 
     def signle_test(self, flavor):
 
+        azone = self._get_azone(flavor)
+        exit(1)
         # Get container
         container = self._get_container()
 
