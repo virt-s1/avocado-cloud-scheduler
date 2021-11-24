@@ -73,7 +73,7 @@ class ContainerMaster():
             LOG.debug('No available container left.')
             return None
 
-    def run_test(self, container_name):
+    def trigger_container_run(self, container_name):
         # Prepare environment
         container_data_path = os.path.join(
             self.container_path, container_name, 'data')
@@ -188,37 +188,53 @@ class AvocadoScheduler():
         else:
             LOG.debug(f'image: {image}')
 
+        container_path = container.get('container_path', '/tmp')
+        self.container_master = ContainerMaster(container)
+        self.config_assistant = ConfigAssistant(
+            container_path=container_path)
+
         self.container = container
+        self.container_path = container_path
         self.log_path = self.config.get(
-            'log_path', os.path.join(self.container_path, 'logs'))
+            'log_path', os.path.join(container_path, 'logs'))
 
-    def run(self):
+    def _get_container(self):
+        return self.container_master.get_available_container()
 
-        # Get container
-        container_master = ContainerMaster(self.container)
-        container = container_master.get_available_container()
+    def _provision_test(self, container_name, flavor):
+        self.config_assistant.provision_data(container_name, flavor)
+        return None
 
-        # Provision data
-        container_path = self.container.get('container_path', '/tmp')
+    def _execute_test(self, container_name):
+        return self.container_master.trigger_container_run(container_name)
 
-        config_assistant = ConfigAssistant(container_path=container_path)
-        config_assistant.provision_data(container, 'ecs.g5.xlarge')
-
-        # Run test
-        container_master.run_test(container)
-
-        # Collect the logs
-        result_path = os.path.join(container_path,
-                                   container, 'job-results')
+    def _collect_log(self, container_name):
+        result_path = os.path.join(self.container_path,
+                                   container_name, 'job-results')
         for dirname in os.listdir(result_path):
-            if not dirname.startswith('job-'):
+            if dirname.startswith('job-'):
                 shutil.move(os.path.join(result_path, dirname),
                             os.path.join(self.log_path, dirname))
+
+    def signle_test(self, flavor):
+
+        # Get container
+        container = self._get_container()
+
+        # Provision data
+        self._provision_test(container, flavor)
+
+        # Execute the test
+        res = self._execute_test(container)
+
+        # Collect the logs
+        self._collect_log(container)
 
         return None
 
 
 if __name__ == '__main__':
     scheduler = AvocadoScheduler(ARGS)
+    scheduler.signle_test(flavor='ecs.g5.xlarge')
 
 exit(0)
