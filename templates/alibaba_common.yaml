@@ -1,0 +1,30 @@
+Cloud:
+    provider: alibaba
+Credential:
+    access_key_id: LTAIuH9gSdMUFXOw
+    secretaccess_key: HOBIjfPtP445tu15oEz1G9sEAgtdse
+Subscription:
+    username: null
+    password: null
+VM:
+    rhel_ver: 8.5
+    username: root
+    password: Redhat123$
+    keypair: cheshi-docker
+    vm_name: cheshi-instance-ac1
+    az: cn-beijing-g
+    region: cn-beijing
+Image:
+    name: RHEL-8.5.0-20210816.n.0
+    id: m-2zefh7tct9op6zihzudd
+Network:
+    VSwitch:
+        id: vsw-2zehhryrs1g55aslxq2id
+SecurityGroup:
+    id: sg-2zegq49eb2h96hflufnr
+Disk:
+    cloud_disk_count: 8
+    cloud_disk_name: cheshi-disk-ac1
+    cloud_disk_size: 100
+NIC:
+    nic_name: cheshi-nic-ac1
