@@ -1,8 +1,8 @@
 Cloud:
     provider: alibaba
 Credential:
-    access_key_id: LTAIuH9gSdMUFXOw
-    secretaccess_key: HOBIjfPtP445tu15oEz1G9sEAgtdse
+    access_key_id: LTAIuH9g********
+    secretaccess_key: HOBIjfPtP445tu****************
 Subscription:
     username: null
     password: null
