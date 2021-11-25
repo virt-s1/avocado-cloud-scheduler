@@ -91,7 +91,7 @@ for instance_type in $instance_types; do
 done
 
 # move the yaml file
-mv $file $file.bak 2>/dev/null
+#mv $file $file.bak 2>/dev/null
 mv $yamlf $file
 
 exit 0

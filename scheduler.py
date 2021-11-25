@@ -6,6 +6,7 @@ Schedule containerized avocado-cloud tests for Alibaba Cloud.
 import argparse
 import logging
 import toml
+import json
 import os
 import subprocess
 import shutil
@@ -142,11 +143,35 @@ class ConfigAssistant():
         shutil.copy(os.path.join(self.template_path, 'alibaba_flavors.yaml'),
                     os.path.join(container_data_path, 'alibaba_flavors.yaml'))
 
-    def provision_data(self, container_name, flavor):
+    def provision_data(self, container_name, flavor, keypair, azone, image_name):
         self._copy_default_data(container_name)
 
         container_data_path = os.path.join(
             self.container_path, container_name, 'data')
+
+        # Provision common data
+        try:
+            # Try to get credentials from Alibaba CLI tool config
+            with open(os.path.expanduser('~/.aliyun/config.json'), 'r') as f:
+                cli_config = json.load(f)
+            access_key_id = cli_config.get('profiles')[0].get('access_key_id')
+            access_key_secret = cli_config.get(
+                'profiles')[0].get('access_key_secret')
+        except Exception as ex:
+            LOG.warning('Unable to get Alibaba credentials.')
+            access_key_id = 'Null'
+            access_key_secret = 'Null'
+
+        exec = os.path.join(self.utils_path, 'provision_common_data.sh')
+        file = os.path.join(container_data_path, 'alibaba_common.yaml')
+        cmd = f'{exec} -f {file} -i {access_key_id} -s {access_key_secret} \
+            -k {keypair} -z {azone} -m {image_name} -l {container_name}'
+
+        LOG.debug(f'Shell Command: \n {cmd}')
+        res = subprocess.run(cmd, shell=True)
+        if res.returncode > 0:
+            LOG.error('Failed to provison common data.')
+            return 1
 
         # Provision flavor data
         exec = os.path.join(self.utils_path, 'provision_flavor_data.sh')
@@ -262,12 +287,12 @@ class AvocadoScheduler():
         else:
             LOG.debug(f'enabled_regions: {enabled_regions}')
 
-        image = self.config.get('image')
-        if not image or not isinstance(image, dict):
-            LOG.error('Cannot get valid image from the config file.')
+        image_name = self.config.get('image_name')
+        if not image_name or not isinstance(image_name, str):
+            LOG.error('Cannot get valid image_name from the config file.')
             exit(1)
         else:
-            LOG.debug(f'image: {image}')
+            LOG.debug(f'image_name: {image_name}')
 
         container_path = container.get('container_path', '/tmp')
         self.container_master = ContainerMaster(container)
@@ -281,6 +306,8 @@ class AvocadoScheduler():
             'log_path', os.path.join(container_path, 'logs'))
         self.utils_path = './utils'
         self.enabled_regions = enabled_regions
+        self.image_name = image_name
+        self.keypair = 'cheshi'  # TODO
 
     def _get_azone(self, flavor, in_used_azones=[]):
         """Get an available AZone for the specified flavor."""
@@ -291,8 +318,14 @@ class AvocadoScheduler():
     def _get_container(self):
         return self.container_master.get_available_container()
 
-    def _provision_test(self, container_name, flavor):
-        self.config_assistant.provision_data(container_name, flavor)
+    def _provision_test(self, container_name, flavor, azone):
+        self.config_assistant.provision_data(
+            container_name=container_name,
+            flavor=flavor,
+            keypair=self.keypair,
+            azone=azone,
+            image_name=self.image_name)
+
         return None
 
     def _execute_test(self, container_name):
@@ -315,8 +348,9 @@ class AvocadoScheduler():
         container = self._get_container()
 
         # Provision data
-        #self._provision_test(container, flavor)
+        self._provision_test(container_name=container, flavor=flavor, azone=azone)
 
+        exit(1)
         # Execute the test
         res = self._execute_test(container)
 
