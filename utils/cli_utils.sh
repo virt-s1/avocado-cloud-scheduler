@@ -33,16 +33,33 @@ function az_to_vsw() {
 	x=$(aliyun ecs DescribeVSwitches --IsDefault true \
 		--RegionId $(az_to_region "$1") --ZoneId "$1")
 	[ $? = 0 ] || return 1
-	echo $x | jq -r '.VSwitches.VSwitch[0].VSwitchId'
+	vsw=$(echo $x | jq -r '.VSwitches.VSwitch[0].VSwitchId')
+	[ "$vsw" != "null" ] && echo $vsw && return 0
+
+	# Get non-default VSwitch ID by Zone ID
+	x=$(aliyun ecs DescribeVSwitches --IsDefault false \
+		--RegionId $(az_to_region "$1") --ZoneId "$1")
+	[ $? = 0 ] || return 1
+	vsw=$(echo $x | jq -r '.VSwitches.VSwitch[0].VSwitchId')
+	[ "$vsw" != "null" ] && echo $vsw && return 0 || return 1
 }
 
 function az_to_vpc() {
-	# Get default VPC ID by Zone ID
+	# # Get default VPC ID by Zone ID
+	# _is_az "$1" || return 1
+	# x=$(aliyun ecs DescribeVSwitches --IsDefault true \
+	# 	--RegionId $(az_to_region "$1") --ZoneId "$1")
+	# [ $? = 0 ] || return 1
+	# echo $x | jq -r '.VSwitches.VSwitch[0].VpcId'
+
 	_is_az "$1" || return 1
-	x=$(aliyun ecs DescribeVSwitches --IsDefault true \
+	vsw=$(az_to_vsw $1)
+	[ "$vsw" = "null" ] && return 1
+	x=$(aliyun ecs DescribeVSwitches --VSwitchId $vsw \
 		--RegionId $(az_to_region "$1") --ZoneId "$1")
 	[ $? = 0 ] || return 1
-	echo $x | jq -r '.VSwitches.VSwitch[0].VpcId'
+	vpc=$(echo $x | jq -r '.VSwitches.VSwitch[0].VpcId')
+	[ "$vpc" != "null" ] && echo $vpc && return 0 || return 1
 }
 
 function az_to_sg() {
