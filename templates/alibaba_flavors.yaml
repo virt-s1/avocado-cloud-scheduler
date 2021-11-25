@@ -1,8 +1,10 @@
 Flavor: !mux
-    ecs.i2.2xlarge:
-        name: ecs.i2.2xlarge
-        cpu: 8
-        memory: 64
-        disk_count: 2
-        disk_size: 1788
+
+    ecs.i2.xlarge:
+        name: ecs.i2.xlarge
+        cpu: 4
+        memory: 32
+        nic_count: 3
+        disk_count: 1
+        disk_size: 894
         disk_type: ssd

@@ -95,6 +95,7 @@ class ContainerMaster():
             -v {container_result_path}:/root/avocado/job-results:rw \
             {self.container_image} /bin/bash ./container/bin/test_alibaba.sh'
 
+        LOG.info(f'Run container with command: \n{cmd}')
         test_result = subprocess.run(cmd, shell=True)
 
         # Postprocess the logs
@@ -112,10 +113,10 @@ class ContainerMaster():
                     'alibaba_flavors.yaml'))
 
         if test_result.returncode == 0:
-            LOG.info('Test succeed in container "{container_name}".')
+            LOG.info(f'Test succeed in container "{container_name}".')
             return 0
         else:
-            LOG.warning('Test failed in container "{container_name}".')
+            LOG.warning(f'Test failed in container "{container_name}".')
             return 1
 
 
@@ -163,15 +164,16 @@ class ConfigAssistant():
 class CloudMaster():
     """Manage the cloud resources."""
 
-    def __init__(self):
+    def __init__(self, utils_path='./utils'):
         # Query all available flavors in the cloud
-        FLAVOR_DISTRIBUTION = '/tmp/aliyun_flavor_distribution.tmp'
-        if not os.path.exists(FLAVOR_DISTRIBUTION):
-            exec = os.path.join(self.utils_path, 'query_flavors.sh')
-            cmd = f'{exec} -o {FLAVOR_DISTRIBUTION}'
+        distribution_file = '/tmp/aliyun_flavor_distribution.txt'
+        if not os.path.exists(distribution_file):
+            exec = os.path.join(utils_path, 'query_flavors.sh')
+            cmd = f'{exec} -o {distribution_file}'
             subprocess.run(cmd, shell=True)
 
-        with open(FLAVOR_DISTRIBUTION, 'r') as f:
+        # TODO: consider make this process more frequently
+        with open(distribution_file, 'r') as f:
             _list = f.readlines()
 
         location = {}
@@ -193,15 +195,37 @@ class CloudMaster():
         LOG.debug(f'possible_azones: {possible_azones}')
         return possible_azones
 
-    def get_available_azone(self, flavor):
+    def get_available_azone(self, flavor, enabled_regions):
         # Get possible AZs (all the AZs with the flavor in stock)
         possible_azones = self.list_possible_azones(flavor)
         if not possible_azones:
             LOG.error(f'Flavor "{flavor}" is NoStock.')
             return 1
 
-        idx = random.randint(0, len(possible_azones)-1)
-        available_azone = possible_azones[idx]
+        # Get eligible AZs (possible AZs in enabled regions)
+        if '*' in possible_azones:
+            # This will disable this feature
+            eligible_azones = possible_azones
+        else:
+            # Get eligible AZs
+            eligible_azones = []
+            for zone in possible_azones:
+                for region in enabled_regions:
+                    if region in zone:
+                        eligible_azones.append(zone)
+                        break
+
+        if not eligible_azones:
+            LOG.error(f'The flavor "{flavor}" is InStock but it is outside \
+the enabled regions. Please consider enabling more regions! Information: \
+Possible AZs: {possible_azones} Enabled regions: {enabled_regions}')
+            return 1
+        else:
+            LOG.debug(f'eligible_azones: {eligible_azones}')
+
+        # Randomly pick an AZ
+        idx = random.randint(0, len(eligible_azones)-1)
+        available_azone = eligible_azones[idx]
         LOG.info(
             f'Randomly picked AZ "{available_azone}" for flavor "{flavor}".')
 
@@ -231,6 +255,13 @@ class AvocadoScheduler():
         else:
             LOG.debug(f'azone_pool: {azone_pool}')
 
+        enabled_regions = self.config.get('enabled_regions')
+        if not enabled_regions or not isinstance(enabled_regions, list):
+            LOG.error('Cannot get valid enabled_regions from the config file.')
+            exit(1)
+        else:
+            LOG.debug(f'enabled_regions: {enabled_regions}')
+
         image = self.config.get('image')
         if not image or not isinstance(image, dict):
             LOG.error('Cannot get valid image from the config file.')
@@ -242,17 +273,20 @@ class AvocadoScheduler():
         self.container_master = ContainerMaster(container)
         self.config_assistant = ConfigAssistant(
             container_path=container_path, utils_path='./utils')
-        self.cloud_master = CloudMaster()
+        self.cloud_master = CloudMaster(utils_path='./utils')
 
         self.container = container
         self.container_path = container_path
         self.log_path = self.config.get(
             'log_path', os.path.join(container_path, 'logs'))
         self.utils_path = './utils'
+        self.enabled_regions = enabled_regions
 
-    def _get_azone(self, flavor, azone_pool=[], in_used_azones=[]):
+    def _get_azone(self, flavor, in_used_azones=[]):
         """Get an available AZone for the specified flavor."""
-        return self.cloud_master.get_available_azone(flavor)
+        return self.cloud_master.get_available_azone(
+            flavor=flavor,
+            enabled_regions=self.enabled_regions)
 
     def _get_container(self):
         return self.container_master.get_available_container()
@@ -274,13 +308,14 @@ class AvocadoScheduler():
 
     def signle_test(self, flavor):
 
+        # Get AZone
         azone = self._get_azone(flavor)
-        exit(1)
+
         # Get container
         container = self._get_container()
 
         # Provision data
-        self._provision_test(container, flavor)
+        #self._provision_test(container, flavor)
 
         # Execute the test
         res = self._execute_test(container)
@@ -293,6 +328,6 @@ class AvocadoScheduler():
 
 if __name__ == '__main__':
     scheduler = AvocadoScheduler(ARGS)
-    scheduler.signle_test(flavor='ecs.g5.xlarge')
+    scheduler.signle_test(flavor='ecs.i2.xlarge')
 
 exit(0)
