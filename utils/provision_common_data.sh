@@ -13,7 +13,7 @@ function show_usage() {
 	echo "$(basename $0) -m RHEL-8.3.0-20200811.0"
 }
 
-while getopts :hf:i:s:z:m:l: ARGS; do
+while getopts :hf:i:s:k:z:m:l: ARGS; do
 	case $ARGS in
 	h)
 		# Help
