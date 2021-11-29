@@ -254,7 +254,7 @@ class CloudAssistant():
             LOG.info(f'The flavor "{flavor}" is InStock but it is outside '
                      f'the enabled regions. Please consider enabling more '
                      f'regions! Information: Possible AZs: {possible_azones} '
-                     f'Enabled regions: {enabled_regions}')
+                     f'Enabled regions: {self.enabled_regions}')
             return 3
 
         # Randomly pick an AZ
@@ -397,53 +397,6 @@ class TestWorker():
 
         self.log_path = log_path
 
-    # def _get_azone(self, flavor, in_used_azones=[]):
-    #     """Get an available AZone for the specified flavor."""
-    #     return self.cloud_assistant.get_available_azone(flavor)
-
-    # def _get_container(self):
-    #     return
-
-    # def _provision_test(self, container_name, flavor, azone):
-    #     self.config_assistant.provision_data(
-    #         container_name=container_name,
-    #         flavor=flavor,
-    #         keypair=self.keypair,
-    #         azone=azone,
-    #         image_name=self.image_name)
-
-    #     return None
-
-    # def _execute_test(self, flavor, container_name):
-    #     exec = os.path.join(UTILS_PATH, 'run.sh')
-    #     container_path = self.config.get(
-    #         'containers', {}).get('container_path')
-    #     container_image = self.config.get(
-    #         'containers', {}).get('container_image')
-    #     cmd = f'{exec} -p {container_path} -n {container_name} \
-    #         -m {container_image}'
-
-    #     LOG.info(f'Running test against "{flavor}" from container '
-    #              f'"{container_name}"...')
-    #     res = subprocess.run(cmd, shell=True)
-
-    #     if res.returncode == 0:
-    #         LOG.info(f'PASSED! Test against "{flavor}" from container '
-    #                  f'"{container_name}".')
-    #         return 0
-    #     else:
-    #         LOG.info(f'FAILED! Test against "{flavor}" from container '
-    #                  f'"{container_name}".')
-    #         return 1
-
-    # def _collect_log(self, container_name):
-    #     result_path = os.path.join(self.container_path,
-    #                                container_name, 'job-results')
-    #     for dirname in os.listdir(result_path):
-    #         if dirname.startswith('job-'):
-    #             shutil.move(os.path.join(result_path, dirname),
-    #                         os.path.join(self.log_path, dirname))
-
     def start(self, flavor):
         # Get AZone
         azone = self.cloud_assistant.pick_azone(flavor)
@@ -467,37 +420,8 @@ class TestWorker():
 
 
 if __name__ == '__main__':
-    # Load and parse user config
-    with open(ARGS.config, 'r') as f:
-        config = toml.load(f)
-        LOG.debug(f'{ARGS.config}: {config}')
 
-    containers = config.get('containers')
-    if not isinstance(containers, dict):
-        LOG.error('Cannot get valid containers from the config file.')
-        exit(1)
-    else:
-        LOG.debug(f'Get user config "containers": {containers}')
-
-    enabled_regions = config.get('enabled_regions')
-    if not isinstance(enabled_regions, list):
-        LOG.error('Cannot get valid enabled_regions from the config file.')
-        exit(1)
-    else:
-        LOG.debug(f'Get user config "enabled_regions": {enabled_regions}')
-
-    image_name = config.get('image_name')
-    if not isinstance(image_name, str):
-        LOG.error('Cannot get valid image_name from the config file.')
-        exit(1)
-    else:
-        LOG.debug(f'image_name: {image_name}')
-
-    container_path = containers.get('container_path', '/tmp')
-
-    scheduler = TestScheduler()
     worker = TestWorker()
-
     worker.start('ecs.i2.xlarge')
 
 
