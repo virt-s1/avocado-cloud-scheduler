@@ -24,6 +24,12 @@ ARG_PARSER.add_argument(
     help='Toml file for test executor configuration.',
     default='./config.toml',
     required=False)
+ARG_PARSER.add_argument(
+    '--flavor',
+    dest='flavor',
+    action='store',
+    help='Type of instance to test.',
+    required=True)
 
 ARGS = ARG_PARSER.parse_args()
 
@@ -497,7 +503,7 @@ class TestExecutor():
 if __name__ == '__main__':
 
     executor = TestExecutor()
-    code = executor.run('ecs.i2.xlarge')
+    code = executor.run(ARGS.flavor)
 
     LOG.info(f'Exit Code: {code}')
     exit(code)
