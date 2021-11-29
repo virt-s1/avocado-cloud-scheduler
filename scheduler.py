@@ -266,58 +266,22 @@ class TestScheduler():
     """Schedule the containerized avocado-cloud testing."""
 
     def __init__(self, ARGS):
-        # Load config
-        with open(ARGS.config, 'r') as f:
-            self.config = toml.load(f)
-            LOG.debug(f'{ARGS.config}: {self.config}')
+        pass
 
-        container = self.config.get('container')
-        if not container or not isinstance(container, dict):
-            LOG.error('Cannot get valid container from the config file.')
-            exit(1)
-        else:
-            LOG.debug(f'container: {container}')
 
-        azone_pool = self.config.get('azone_pool')
-        if not azone_pool or not isinstance(azone_pool, list):
-            LOG.error('Cannot get valid azone_pool from the config file.')
-            exit(1)
-        else:
-            LOG.debug(f'azone_pool: {azone_pool}')
+class TestWorker():
+    """Execute the containerized avocado-cloud testing."""
 
-        enabled_regions = self.config.get('enabled_regions')
-        if not enabled_regions or not isinstance(enabled_regions, list):
-            LOG.error('Cannot get valid enabled_regions from the config file.')
-            exit(1)
-        else:
-            LOG.debug(f'enabled_regions: {enabled_regions}')
+    def __init__(self):
 
-        image_name = self.config.get('image_name')
-        if not image_name or not isinstance(image_name, str):
-            LOG.error('Cannot get valid image_name from the config file.')
-            exit(1)
-        else:
-            LOG.debug(f'image_name: {image_name}')
-
-        container_path = container.get('container_path', '/tmp')
-        self.container_assistant = ContainerAssistant(container)
-        self.config_assistant = ConfigAssistant(container_path)
-        self.cloud_assistant = CloudAssistant()
-
-        self.container = container
-        self.container_path = container_path
-        self.log_path = self.config.get(
-            'log_path', os.path.join(container_path, 'logs'))
-        self.enabled_regions = enabled_regions
-
-        self.image_name = image_name
-        self.keypair = 'cheshi-docker'  # TODO
+        self.container_assistant = ContainerAssistant(ARGS.config)
+        self.cloud_assistant = CloudAssistant(ARGS.config)
+        self.config_assistant = ConfigAssistant(ARGS.config)
 
     def _get_azone(self, flavor, in_used_azones=[]):
         """Get an available AZone for the specified flavor."""
         return self.cloud_assistant.get_available_azone(
-            flavor=flavor,
-            enabled_regions=self.enabled_regions)
+            flavor=flavor)
 
     def _get_container(self):
         return self.container_assistant.get_available_container()
@@ -361,16 +325,41 @@ class TestScheduler():
         # Collect the logs
         self._collect_log(container)
 
-        return None
-
-
-class TestWorker():
-    """Execute the containerized avocado-cloud testing."""
-    pass
-
 
 if __name__ == '__main__':
-    scheduler = TestScheduler(ARGS)
-    scheduler.signle_test(flavor='ecs.i2.xlarge')
+    # scheduler = TestScheduler(ARGS)
+    # scheduler.signle_test(flavor='ecs.i2.xlarge')
+
+    # Load and parse user config
+    with open(ARGS.config, 'r') as f:
+        config = toml.load(f)
+        LOG.debug(f'{ARGS.config}: {config}')
+
+    containers = config.get('containers')
+    if not isinstance(containers, dict):
+        LOG.error('Cannot get valid containers from the config file.')
+        exit(1)
+    else:
+        LOG.debug(f'Get user config "containers": {containers}')
+
+    enabled_regions = config.get('enabled_regions')
+    if not isinstance(enabled_regions, list):
+        LOG.error('Cannot get valid enabled_regions from the config file.')
+        exit(1)
+    else:
+        LOG.debug(f'Get user config "enabled_regions": {enabled_regions}')
+
+    image_name = config.get('image_name')
+    if not isinstance(image_name, str):
+        LOG.error('Cannot get valid image_name from the config file.')
+        exit(1)
+    else:
+        LOG.debug(f'image_name: {image_name}')
+
+    container_path = containers.get('container_path', '/tmp')
+
+    scheduler = TestScheduler()
+    worker = TestWorker()
+
 
 exit(0)
