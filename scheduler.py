@@ -86,6 +86,8 @@ class ContainerMaster():
         os.makedirs(container_data_path, exist_ok=True)
         os.makedirs(container_result_path, exist_ok=True)
 
+        #os.unlink(os.path.join(container_result_path, 'latest'))
+
         subprocess.run(f'chcon -R -u system_u -t svirt_sandbox_file_t \
             {self.container_path}', shell=True)
 
@@ -100,6 +102,7 @@ class ContainerMaster():
         test_result = subprocess.run(cmd, shell=True)
 
         # Postprocess the logs
+        import time; time.sleep(10)
         LOG.info('Postprocessing logs...')
         os.makedirs(os.path.join(container_result_path,
                     'latest', 'testinfo'), exist_ok=True)
@@ -306,8 +309,9 @@ class AvocadoScheduler():
             'log_path', os.path.join(container_path, 'logs'))
         self.utils_path = './utils'
         self.enabled_regions = enabled_regions
+
         self.image_name = image_name
-        self.keypair = 'cheshi'  # TODO
+        self.keypair = 'cheshi-docker'  # TODO
 
     def _get_azone(self, flavor, in_used_azones=[]):
         """Get an available AZone for the specified flavor."""
@@ -350,7 +354,6 @@ class AvocadoScheduler():
         # Provision data
         self._provision_test(container_name=container, flavor=flavor, azone=azone)
 
-        exit(1)
         # Execute the test
         res = self._execute_test(container)
 
