@@ -104,53 +104,23 @@ class ContainerAssistant():
                          f'from "{self.container_pool}".')
                 return name
 
-    # def trigger_container_run(self, container_name):
-    #     # Prepare environment
-    #     container_data_path = os.path.join(
-    #         self.container_path, container_name, 'data')
-    #     container_result_path = os.path.join(
-    #         self.container_path, container_name, 'job-results')
+    def run_container(self, container_name, flavor='flavor'):
+        exec = os.path.join(UTILS_PATH, 'run.sh')
+        cmd = f'{exec} -p {self.container_path} -n {container_name} \
+            -m {self.container_image}'
 
-    #     os.makedirs(container_data_path, exist_ok=True)
-    #     os.makedirs(container_result_path, exist_ok=True)
+        LOG.info(f'Running test against "{flavor}" from container '
+                 f'"{container_name}"...')
+        res = subprocess.run(cmd, shell=True)
 
-    #     #os.unlink(os.path.join(container_result_path, 'latest'))
-
-    #     subprocess.run(f'chcon -R -u system_u -t svirt_sandbox_file_t \
-    #         {self.container_path}', shell=True)
-
-    #     # Execute the test
-    #     LOG.info(f'Run test in container "{container_name}"...')
-    #     cmd = f'podman run --name {container_name} --rm -it \
-    #         -v {container_data_path}:/data:rw \
-    #         -v {container_result_path}:/root/avocado/job-results:rw \
-    #         {self.container_image} /bin/bash ./container/bin/test_alibaba.sh'
-
-    #     LOG.info(f'Run container with command: \n{cmd}')
-    #     test_result = subprocess.run(cmd, shell=True)
-
-    #     # Postprocess the logs
-    #     import time
-    #     time.sleep(10)
-    #     LOG.info('Postprocessing logs...')
-    #     os.makedirs(os.path.join(container_result_path,
-    #                 'latest', 'testinfo'), exist_ok=True)
-    #     shutil.copy(os.path.join(container_data_path, 'alibaba_common.yaml'),
-    #                 os.path.join(container_result_path, 'latest', 'testinfo',
-    #                              'alibaba_common.yaml'))
-    #     shutil.copy(os.path.join(container_data_path, 'alibaba_testcases.yaml'),
-    #                 os.path.join(container_result_path, 'latest', 'testinfo',
-    #                 'alibaba_testcases.yaml'))
-    #     shutil.copy(os.path.join(container_data_path, 'alibaba_flavors.yaml'),
-    #                 os.path.join(container_result_path, 'latest', 'testinfo',
-    #                 'alibaba_flavors.yaml'))
-
-    #     if test_result.returncode == 0:
-    #         LOG.info(f'Test succeed in container "{container_name}".')
-    #         return 0
-    #     else:
-    #         LOG.warning(f'Test failed in container "{container_name}".')
-    #         return 1
+        if res.returncode == 0:
+            LOG.info(f'PASSED! Test against "{flavor}" from container '
+                     f'"{container_name}".')
+            return 0
+        else:
+            LOG.info(f'FAILED! Test against "{flavor}" from container '
+                     f'"{container_name}".')
+            return 1
 
 
 class CloudAssistant():
@@ -315,11 +285,10 @@ class ConfigAssistant():
         self.image_name = config.get('image_name')  # TODO
 
     def _pre_action(self, container_name):
+        # Create directories
         data_path = os.path.join(self.container_path, container_name, 'data')
         result_path = os.path.join(
             self.container_path, container_name, 'job-results')
-
-        # Create directories
         os.makedirs(data_path, exist_ok=True)
         os.makedirs(result_path, exist_ok=True)
 
@@ -367,12 +336,11 @@ class ConfigAssistant():
         # Pre-action
         self._pre_action(container_name)
 
-        data_path = os.path.join(self.container_path, container_name, 'data')
-
         # Provision common data
-        access_key_id, access_key_secret = self._get_alibaba_credentials()
+        data_path = os.path.join(self.container_path, container_name, 'data')
         exec = os.path.join(UTILS_PATH, 'provision_common_data.sh')
         file = os.path.join(data_path, 'alibaba_common.yaml')
+        access_key_id, access_key_secret = self._get_alibaba_credentials()
         cmd = f'{exec} -f {file} -i {access_key_id} -s {access_key_secret} \
             -k {self.keypair} -z {azone} -m {self.image_name} \
             -l {container_name}'
@@ -437,8 +405,27 @@ class TestWorker():
 
     #     return None
 
-    def _execute_test(self, container_name):
-        return self.container_assistant.trigger_container_run(container_name)
+    # def _execute_test(self, flavor, container_name):
+    #     exec = os.path.join(UTILS_PATH, 'run.sh')
+    #     container_path = self.config.get(
+    #         'containers', {}).get('container_path')
+    #     container_image = self.config.get(
+    #         'containers', {}).get('container_image')
+    #     cmd = f'{exec} -p {container_path} -n {container_name} \
+    #         -m {container_image}'
+
+    #     LOG.info(f'Running test against "{flavor}" from container '
+    #              f'"{container_name}"...')
+    #     res = subprocess.run(cmd, shell=True)
+
+    #     if res.returncode == 0:
+    #         LOG.info(f'PASSED! Test against "{flavor}" from container '
+    #                  f'"{container_name}".')
+    #         return 0
+    #     else:
+    #         LOG.info(f'FAILED! Test against "{flavor}" from container '
+    #                  f'"{container_name}".')
+    #         return 1
 
     def _collect_log(self, container_name):
         result_path = os.path.join(self.container_path,
@@ -462,9 +449,9 @@ class TestWorker():
             flavor=flavor,
             azone=azone)
 
-        exit(1)
         # Execute the test
-        res = self._execute_test(container)
+        self.container_assistant.run_container(container, flavor)
+        exit(1)
 
         # Collect the logs
         self._collect_log(container)
