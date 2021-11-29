@@ -104,10 +104,12 @@ class ContainerAssistant():
                          f'from "{self.container_pool}".')
                 return name
 
-    def run_container(self, container_name, flavor='flavor'):
+    def run_container(self, container_name, flavor='flavor', log_path=None):
         exec = os.path.join(UTILS_PATH, 'run.sh')
         cmd = f'{exec} -p {self.container_path} -n {container_name} \
             -m {self.container_image}'
+        if log_path:
+            cmd += f' -l {log_path}'
 
         LOG.info(f'Running test against "{flavor}" from container '
                  f'"{container_name}"...')
@@ -386,7 +388,14 @@ class TestWorker():
         self.cloud_assistant = CloudAssistant(ARGS.config)
         self.config_assistant = ConfigAssistant(ARGS.config)
 
-        self.config = config
+        log_path = config.get('log_path')
+        if not isinstance(log_path, str):
+            LOG.error('Invalid log_path (string) in config file.')
+            exit(1)
+        else:
+            LOG.debug(f'Get user config "log_path": {log_path}')
+
+        self.log_path = log_path
 
     # def _get_azone(self, flavor, in_used_azones=[]):
     #     """Get an available AZone for the specified flavor."""
@@ -427,16 +436,15 @@ class TestWorker():
     #                  f'"{container_name}".')
     #         return 1
 
-    def _collect_log(self, container_name):
-        result_path = os.path.join(self.container_path,
-                                   container_name, 'job-results')
-        for dirname in os.listdir(result_path):
-            if dirname.startswith('job-'):
-                shutil.move(os.path.join(result_path, dirname),
-                            os.path.join(self.log_path, dirname))
+    # def _collect_log(self, container_name):
+    #     result_path = os.path.join(self.container_path,
+    #                                container_name, 'job-results')
+    #     for dirname in os.listdir(result_path):
+    #         if dirname.startswith('job-'):
+    #             shutil.move(os.path.join(result_path, dirname),
+    #                         os.path.join(self.log_path, dirname))
 
     def start(self, flavor):
-
         # Get AZone
         azone = self.cloud_assistant.pick_azone(flavor)
 
@@ -449,12 +457,13 @@ class TestWorker():
             flavor=flavor,
             azone=azone)
 
-        # Execute the test
-        self.container_assistant.run_container(container, flavor)
-        exit(1)
+        # Execute the test and collect log
+        res = self.container_assistant.run_container(
+            container_name=container,
+            flavor=flavor,
+            log_path=self.log_path)
 
-        # Collect the logs
-        self._collect_log(container)
+        return res
 
 
 if __name__ == '__main__':
