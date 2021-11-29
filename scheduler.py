@@ -40,9 +40,9 @@ class ContainerAssistant():
             config = toml.load(f)
             LOG.debug(f'{ARGS.config}: {config}')
 
-        container_image = config.get('containers', {}).get('container_image')
-        container_path = config.get('containers', {}).get('container_path')
-        container_pool = config.get('containers', {}).get('container_pool')
+        container_image = config.get('container_image')
+        container_path = config.get('container_path')
+        container_pool = config.get('container_pool')
 
         # Verify container image
         cmd = f'podman inspect {container_image} &>/dev/null'
@@ -284,7 +284,7 @@ class ConfigAssistant():
             config = toml.load(f)
             LOG.debug(f'{ARGS.config}: {config}')
 
-        container_path = config.get('containers', {}).get('container_path')
+        container_path = config.get('container_path')
         if not os.path.isdir(container_path):
             LOG.error(f'Container path "{container_path}" does not exist.')
             exit(1)

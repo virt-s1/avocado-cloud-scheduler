@@ -1,14 +1,7 @@
-azone_pool = [
-  "cn-beijing-h",
-  "cn-beijing-g",
-  "cn-beijing-f",
-]
+container_image = "avocado-cloud:latest"
+container_path = "/home/cheshi/mirror/containers/avocado_scheduler"
+container_pool = ["ac1", "ac2", "ac3", "ac4"]
 enabled_regions = ["cn-beijing-f"]
 image_name = "redhat_8_5_x64_20G_alibase_20211117_copied.qcow2"
 keypair = 'cheshi-docker'
 log_path = "/home/cheshi/mirror/containers/avocado_scheduler/logs"
-
-[containers]
-container_image = "avocado-cloud:latest"
-container_path = "/home/cheshi/mirror/containers/avocado_scheduler"
-container_pool = ["ac1", "ac2", "ac3", "ac4"]
