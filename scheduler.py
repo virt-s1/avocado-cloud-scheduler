@@ -28,6 +28,7 @@ ARG_PARSER.add_argument(
 ARGS = ARG_PARSER.parse_args()
 
 UTILS_PATH = './utils'
+TEMPLATE_PATH = './templates'
 
 
 class ContainerAssistant():
@@ -295,62 +296,106 @@ class CloudAssistant():
 class ConfigAssistant():
     """Provision config for avocado-cloud testing."""
 
-    def __init__(self, container_path='/tmp', template_path='./templates'):
+    def __init__(self, config_file):
+        # Load and parse user config
+        with open(config_file, 'r') as f:
+            config = toml.load(f)
+            LOG.debug(f'{ARGS.config}: {config}')
+
+        container_path = config.get('containers', {}).get('container_path')
+        if not os.path.isdir(container_path):
+            LOG.error(f'Container path "{container_path}" does not exist.')
+            exit(1)
+        else:
+            LOG.debug(f'Get user config "container_path": {container_path}')
+
         self.container_path = container_path
-        self.template_path = template_path
 
-    def _copy_default_data(self, container_name):
-        container_data_path = os.path.join(
-            self.container_path, container_name, 'data')
+        self.keypair = config.get('keypair')        # TODO
+        self.image_name = config.get('image_name')  # TODO
 
-        LOG.debug(f'Copying default data into {container_data_path}')
-        os.makedirs(container_data_path, exist_ok=True)
-        shutil.copy(os.path.join(self.template_path, 'alibaba_common.yaml'),
-                    os.path.join(container_data_path, 'alibaba_common.yaml'))
-        shutil.copy(os.path.join(self.template_path, 'alibaba_testcases.yaml'),
-                    os.path.join(container_data_path, 'alibaba_testcases.yaml'))
-        shutil.copy(os.path.join(self.template_path, 'alibaba_flavors.yaml'),
-                    os.path.join(container_data_path, 'alibaba_flavors.yaml'))
+    def _pre_action(self, container_name):
+        data_path = os.path.join(self.container_path, container_name, 'data')
+        result_path = os.path.join(
+            self.container_path, container_name, 'job-results')
 
-    def provision_data(self, container_name, flavor, keypair, azone, image_name):
-        self._copy_default_data(container_name)
+        # Create directories
+        os.makedirs(data_path, exist_ok=True)
+        os.makedirs(result_path, exist_ok=True)
 
-        container_data_path = os.path.join(
-            self.container_path, container_name, 'data')
+        # Deliver configure files
+        # TODO: enhance this logic
+        LOG.debug(f'Copying default data into {data_path}')
+        shutil.copy(os.path.join(TEMPLATE_PATH, 'alibaba_common.yaml'),
+                    os.path.join(data_path, 'alibaba_common.yaml'))
+        shutil.copy(os.path.join(TEMPLATE_PATH, 'alibaba_testcases.yaml'),
+                    os.path.join(data_path, 'alibaba_testcases.yaml'))
+        shutil.copy(os.path.join(TEMPLATE_PATH, 'alibaba_flavors.yaml'),
+                    os.path.join(data_path, 'alibaba_flavors.yaml'))
 
-        # Provision common data
+    def _post_action(self, container_name):
+        pass
+
+    def _get_alibaba_credentials(self):
         try:
-            # Try to get credentials from Alibaba CLI tool config
+            # Get credentials from Alibaba CLI tool config
             with open(os.path.expanduser('~/.aliyun/config.json'), 'r') as f:
                 cli_config = json.load(f)
-            access_key_id = cli_config.get('profiles')[0].get('access_key_id')
+            access_key_id = cli_config.get(
+                'profiles')[0].get('access_key_id')
             access_key_secret = cli_config.get(
                 'profiles')[0].get('access_key_secret')
         except Exception as ex:
-            LOG.warning('Unable to get Alibaba credentials.')
+            LOG.warning(
+                'Unable to get Alibaba credentials from CLI config.')
             access_key_id = 'Null'
             access_key_secret = 'Null'
 
-        exec = os.path.join(UTILS_PATH, 'provision_common_data.sh')
-        file = os.path.join(container_data_path, 'alibaba_common.yaml')
-        cmd = f'{exec} -f {file} -i {access_key_id} -s {access_key_secret} \
-            -k {keypair} -z {azone} -m {image_name} -l {container_name}'
+        return (access_key_id, access_key_secret)
 
-        LOG.debug(f'Shell Command: \n {cmd}')
+    def provision_data(self, container_name, flavor, azone):
+        """Provision config for avocado-cloud testing.
+
+        Input:
+            - container_name    - Container Name
+            - flavor            - Instance Type
+            - azone             - AZ
+        Output:
+            - 0 if succeed, or
+            - 1 if failed
+        """
+        # Pre-action
+        self._pre_action(container_name)
+
+        data_path = os.path.join(self.container_path, container_name, 'data')
+
+        # Provision common data
+        access_key_id, access_key_secret = self._get_alibaba_credentials()
+        exec = os.path.join(UTILS_PATH, 'provision_common_data.sh')
+        file = os.path.join(data_path, 'alibaba_common.yaml')
+        cmd = f'{exec} -f {file} -i {access_key_id} -s {access_key_secret} \
+            -k {self.keypair} -z {azone} -m {self.image_name} \
+            -l {container_name}'
+
+        LOG.debug(f'Update "{file}" by command "{cmd}".')
         res = subprocess.run(cmd, shell=True)
         if res.returncode > 0:
-            LOG.error('Failed to provison common data.')
+            LOG.error('Failed to update "{file}".')
             return 1
 
         # Provision flavor data
         exec = os.path.join(UTILS_PATH, 'provision_flavor_data.sh')
-        file = os.path.join(container_data_path, 'alibaba_flavors.yaml')
+        file = os.path.join(data_path, 'alibaba_flavors.yaml')
         cmd = f'{exec} {flavor} {file}'
 
+        LOG.debug(f'Update "{file}" by command "{cmd}".')
         res = subprocess.run(cmd, shell=True)
         if res.returncode > 0:
-            LOG.error('Failed to provison flavor data.')
+            LOG.error('Failed to update "{file}".')
             return 1
+
+        # Post-action
+        self._post_action(container_name)
 
         return 0
 
@@ -364,27 +409,33 @@ class TestWorker():
     """Execute the containerized avocado-cloud testing."""
 
     def __init__(self):
+        # Load and parse user config
+        with open(ARGS.config, 'r') as f:
+            config = toml.load(f)
+            LOG.debug(f'{ARGS.config}: {config}')
 
         self.container_assistant = ContainerAssistant(ARGS.config)
         self.cloud_assistant = CloudAssistant(ARGS.config)
         self.config_assistant = ConfigAssistant(ARGS.config)
 
-    def _get_azone(self, flavor, in_used_azones=[]):
-        """Get an available AZone for the specified flavor."""
-        return self.cloud_assistant.get_available_azone(flavor)
+        self.config = config
 
-    def _get_container(self):
-        return
+    # def _get_azone(self, flavor, in_used_azones=[]):
+    #     """Get an available AZone for the specified flavor."""
+    #     return self.cloud_assistant.get_available_azone(flavor)
 
-    def _provision_test(self, container_name, flavor, azone):
-        self.config_assistant.provision_data(
-            container_name=container_name,
-            flavor=flavor,
-            keypair=self.keypair,
-            azone=azone,
-            image_name=self.image_name)
+    # def _get_container(self):
+    #     return
 
-        return None
+    # def _provision_test(self, container_name, flavor, azone):
+    #     self.config_assistant.provision_data(
+    #         container_name=container_name,
+    #         flavor=flavor,
+    #         keypair=self.keypair,
+    #         azone=azone,
+    #         image_name=self.image_name)
+
+    #     return None
 
     def _execute_test(self, container_name):
         return self.container_assistant.trigger_container_run(container_name)
@@ -405,11 +456,13 @@ class TestWorker():
         # Get container
         container = self.container_assistant.pick_container()
 
-        exit(0)
         # Provision data
-        self._provision_test(container_name=container,
-                             flavor=flavor, azone=azone)
+        self.config_assistant.provision_data(
+            container_name=container,
+            flavor=flavor,
+            azone=azone)
 
+        exit(1)
         # Execute the test
         res = self._execute_test(container)
 

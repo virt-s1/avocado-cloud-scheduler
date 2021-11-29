@@ -5,6 +5,7 @@ azone_pool = [
 ]
 enabled_regions = ["cn-beijing-f"]
 image_name = "redhat_8_5_x64_20G_alibase_20211117_copied.qcow2"
+keypair = 'cheshi-docker'
 log_path = "/home/cheshi/mirror/containers/avocado_scheduler/logs"
 
 [containers]
