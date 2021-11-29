@@ -130,7 +130,19 @@ class ContainerAssistant():
 class CloudAssistant():
     """Deal with cloud resources."""
 
-    def __init__(self):
+    def __init__(self, config_file):
+        # Load and parse user config
+        with open(config_file, 'r') as f:
+            config = toml.load(f)
+            LOG.debug(f'{ARGS.config}: {config}')
+
+        enabled_regions = config.get('enabled_regions')
+        if not isinstance(enabled_regions, list):
+            LOG.error('Invalid enabled_regions (list) in config file.')
+            exit(1)
+        else:
+            LOG.debug(f'Get user config "enabled_regions": {enabled_regions}')
+
         # Query all available flavors in the cloud
         distribution_file = '/tmp/aliyun_flavor_distribution.txt'
         if not os.path.exists(distribution_file):
@@ -138,65 +150,121 @@ class CloudAssistant():
             cmd = f'{exec} -o {distribution_file}'
             subprocess.run(cmd, shell=True)
 
-        # TODO: consider make this process more frequently
         with open(distribution_file, 'r') as f:
             _list = f.readlines()
 
-        location = {}
+        location_info = {}
         for _entry in _list:
             _entry = _entry.strip().split(',')
             _azone = _entry[0]
             _flavor = _entry[1]
 
-            if _flavor in location:
-                location[_flavor].append(_azone)
+            if _flavor in location_info:
+                location_info[_flavor].append(_azone)
             else:
-                location[_flavor] = [_azone]
+                location_info[_flavor] = [_azone]
 
-        #LOG.debug(f'flavor location: {location}')
-        self.location = location
+        self.enabled_regions = enabled_regions
+        self.location_info = location_info
 
-    def list_possible_azones(self, flavor):
-        possible_azones = self.location.get(flavor, [])
-        LOG.debug(f'possible_azones: {possible_azones}')
+    def get_possible_azones(self, flavor):
+        """Get possible AZ for the specified flavor.
+
+        Input:
+            - flavor - Instance Type
+        Output:
+            - A list of AZs or []
+        """
+        possible_azones = self.location_info.get(flavor, [])
+        if possible_azones:
+            LOG.debug(f'Get Possible AZs for "{flavor}": {possible_azones}')
+        else:
+            LOG.debug(f'Flavor "{flavor}" is out of stock.')
         return possible_azones
 
-    def get_available_azone(self, flavor, enabled_regions):
-        # Get possible AZs (all the AZs with the flavor in stock)
-        possible_azones = self.list_possible_azones(flavor)
-        if not possible_azones:
-            LOG.error(f'Flavor "{flavor}" is NoStock.')
-            return 1
+    def get_eligible_azones(self, azones):
+        """Get eligible AZs by filtering out the non-enabled AZs.
 
-        # Get eligible AZs (possible AZs in enabled regions)
-        if '*' in possible_azones:
+        Input:
+            - azones - List of AZs
+        Output:
+            - A list of eligible AZs or []
+        """
+        if not azones:
+            return []
+
+        # Get eligible AZs (AZs in enabled regions)
+        if '*' in self.enabled_regions:
             # This will disable this feature
-            eligible_azones = possible_azones
+            eligible_azones = azones
         else:
             # Get eligible AZs
             eligible_azones = []
-            for zone in possible_azones:
-                for region in enabled_regions:
-                    if region in zone:
-                        eligible_azones.append(zone)
+            for azone in azones:
+                for region in self.enabled_regions:
+                    if region in azone:
+                        eligible_azones.append(azone)
                         break
 
-        if not eligible_azones:
-            LOG.error(f'The flavor "{flavor}" is InStock but it is outside '
-                      f'the enabled regions. Please consider enabling more '
-                      f'regions! Information: Possible AZs: {possible_azones} '
-                      f'Enabled regions: {enabled_regions}')
-            return 1
+        if eligible_azones:
+            LOG.debug(f'Get Eligible AZs: {eligible_azones}')
         else:
-            LOG.debug(f'eligible_azones: {eligible_azones}')
+            LOG.debug(f'No Eligible AZs was found.')
+
+        return eligible_azones
+
+    def random_pick_azone(self, azones):
+        """Randomly pick an AZ from the list of AZs.
+
+        Input:
+            - azones - List of AZs
+        Output:
+            - AZ (string) or '' if azones is empty.
+        """
+        if not azones:
+            return ''
 
         # Randomly pick an AZ
-        idx = random.randint(0, len(eligible_azones)-1)
-        available_azone = eligible_azones[idx]
-        LOG.info(
-            f'Randomly picked AZ "{available_azone}" for flavor "{flavor}".')
+        idx = random.randint(0, len(azones)-1)
+        azone = azones[idx]
+        LOG.debug(f'Randomly picked AZ "{azone}" from "{azones}".')
 
-        return available_azone
+        return azone
+
+    def pick_azone(self, flavor):
+        """Pick an AZ for the test.
+
+        Input:
+            - flavor - Instance Type
+        Output:
+            - AZ (string) if succeed
+            - 2 if flavor is out of stock
+            - 3 if AZ is not enabled
+        """
+
+        # Get all possible AZs
+        possible_azones = self.get_possible_azones(flavor)
+
+        if not possible_azones:
+            LOG.info(f'Flavor "{flavor}" is out of stock.')
+            return 2
+
+        # Get eligible AZs based on possible ones
+        eligible_azones = self.get_eligible_azones(possible_azones)
+
+        if not eligible_azones:
+            LOG.info(f'The flavor "{flavor}" is InStock but it is outside '
+                     f'the enabled regions. Please consider enabling more '
+                     f'regions! Information: Possible AZs: {possible_azones} '
+                     f'Enabled regions: {enabled_regions}')
+            return 3
+
+        # Randomly pick an AZ
+        azone = self.random_pick_azone(eligible_azones)
+        LOG.info(f'Picked AZ "{azone}" for flavor "{flavor}" '
+                 f'from "{possible_azones}".')
+
+        return azone
 
 
 class ConfigAssistant():
@@ -264,10 +332,7 @@ class ConfigAssistant():
 
 class TestScheduler():
     """Schedule the containerized avocado-cloud testing."""
-
-    def __init__(self, ARGS):
-        pass
-
+    pass
 
 class TestWorker():
     """Execute the containerized avocado-cloud testing."""
@@ -280,11 +345,10 @@ class TestWorker():
 
     def _get_azone(self, flavor, in_used_azones=[]):
         """Get an available AZone for the specified flavor."""
-        return self.cloud_assistant.get_available_azone(
-            flavor=flavor)
+        return self.cloud_assistant.get_available_azone(flavor)
 
     def _get_container(self):
-        return self.container_assistant.get_available_container()
+        return 
 
     def _provision_test(self, container_name, flavor, azone):
         self.config_assistant.provision_data(
@@ -307,14 +371,15 @@ class TestWorker():
                 shutil.move(os.path.join(result_path, dirname),
                             os.path.join(self.log_path, dirname))
 
-    def signle_test(self, flavor):
+    def start(self, flavor):
 
         # Get AZone
-        azone = self._get_azone(flavor)
+        azone = self.cloud_assistant.pick_azone(flavor)
 
         # Get container
-        container = self._get_container()
+        container = self.container_assistant.get_available_container()
 
+        exit(0)
         # Provision data
         self._provision_test(container_name=container,
                              flavor=flavor, azone=azone)
@@ -329,6 +394,7 @@ class TestWorker():
 if __name__ == '__main__':
     # scheduler = TestScheduler(ARGS)
     # scheduler.signle_test(flavor='ecs.i2.xlarge')
+
 
     # Load and parse user config
     with open(ARGS.config, 'r') as f:
@@ -360,6 +426,8 @@ if __name__ == '__main__':
 
     scheduler = TestScheduler()
     worker = TestWorker()
+
+    worker.start()
 
 
 exit(0)
