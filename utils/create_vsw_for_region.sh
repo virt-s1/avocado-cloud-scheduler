@@ -3,8 +3,6 @@
 # Description: Creat VSwitches for the specified region.
 # Maintainer: Charles Shih <schrht@gmail.com>
 
-set -e
-
 function show_usage() {
     echo "Creat VSwitches for the specified region." >&2
     echo "$(basename $0) [-h] <-r region>" >&2
@@ -117,9 +115,14 @@ for zone in $zones; do
         vsw_cidrs="${vsw_cidrs} $vsw_cidr"
         x=$(aliyun ecs CreateVSwitch --RegionId $region --ZoneId $zone --VpcId ${vpc_id} \
             --CidrBlock ${vsw_cidr} --VSwitchName cheshi-auto-vswitch \
-            --Description "Created with automation scripts by cheshi.") || exit 1
-        vsw_id=$(echo $x | jq -r '.VSwitchId') || exit 1
-        echo "$zone: ${vsw_id} [${vsw_cidr}] (NEW)"
+            --Description "Created with automation scripts by cheshi.")
+        if [ "$?" = "0" ]; then
+            vsw_id=$(echo $x | jq -r '.VSwitchId') || exit 1
+            echo "$zone: ${vsw_id} [${vsw_cidr}] (NEW)"
+        else
+            # Known issue: CreateVSwitch fails with deprecated Zones
+            echo "$zone: ${vsw_id} [CREATION FAILED] (IGNORED)"
+        fi
     fi
 done
 
