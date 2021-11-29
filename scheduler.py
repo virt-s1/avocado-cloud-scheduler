@@ -235,8 +235,8 @@ class CloudAssistant():
         # Randomly pick an AZ
         idx = random.randint(0, len(azones)-1)
         azone = azones[idx]
-        LOG.debug(f'Randomly picked AZ "{azone}" from "{azones}".')
 
+        LOG.debug(f'Randomly picked AZ "{azone}" from "{azones}".')
         return azone
 
     def pick_azone(self, flavor):
@@ -247,7 +247,8 @@ class CloudAssistant():
         Output:
             - AZ (string) if succeed
             - 2 if flavor is out of stock
-            - 3 if AZ is not enabled
+            - 3 if AZs are not enabled
+            - 4 if AZs are occupied
         """
 
         # Get all possible AZs
@@ -261,18 +262,71 @@ class CloudAssistant():
         eligible_azones = self.get_eligible_azones(possible_azones)
 
         if not eligible_azones:
-            LOG.info(f'The flavor "{flavor}" is InStock but it is outside '
-                     f'the enabled regions. Please consider enabling more '
-                     f'regions! Information: Possible AZs: {possible_azones} '
-                     f'Enabled regions: {self.enabled_regions}')
+            LOG.info(f'''The flavor "{flavor}" is InStock but it is outside \
+the enabled regions. Please consider enabling more regions! Information: \
+Possible AZs: {possible_azones} Enabled regions: {self.enabled_regions}''')
             return 3
 
+        # Get occupied AZs and filter them out
+        occupied_azones = self.get_occupied_azones()
+        available_azones = [
+            x for x in eligible_azones if x not in occupied_azones]
+
+        if not available_azones:
+            LOG.info(f'''All AZs enabled for "{flavor}" are occupied. \
+Please try again later! Information: Eligible Zones: {eligible_azones} \
+Occupied Zone: {occupied_azones}''')
+            return 4
+
         # Randomly pick an AZ
-        azone = self.random_pick_azone(eligible_azones)
+        azone = self.random_pick_azone(available_azones)
         LOG.info(f'Picked AZ "{azone}" for flavor "{flavor}" '
                  f'from "{possible_azones}".')
 
         return azone
+
+    def _aliyun_cli(self, cmd):
+        LOG.debug(f'Aliyun CLI: {cmd}')
+        p = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE)
+        if p.returncode == 0:
+            return json.loads(p.stdout)
+        else:
+            return None
+
+    def _get_all_regions(self):
+        data = self._aliyun_cli('aliyun ecs DescribeRegions')
+        regions = [x.get('RegionId', '')
+                   for x in data.get('Regions', {}).get('Region', [])]
+
+        LOG.debug(f'Function _get_all_regions returns: {regions}')
+        return regions
+
+    def _get_all_instances(self):
+        instances = []
+        regions = self._get_all_regions()
+        for region in regions:
+            data = self._aliyun_cli(
+                f'aliyun ecs DescribeInstances --RegionId {region} --PageSize 50')
+            if data is None:
+                continue
+            for x in data.get('Instances', {}).get('Instance'):
+                instances.append({'InstanceName': x.get('InstanceName'),
+                                  'InstanceId': x.get('InstanceId'),
+                                  'ZoneId': x.get('ZoneId'),
+                                  'Status': x.get('Status')})
+
+        LOG.debug(f'Function _get_all_instances returns: {instances}')
+        return instances
+
+    def get_occupied_azones(self, label_prefix='qeauto'):
+        occupied_azones = []
+        instances = self._get_all_instances()
+        for instance in instances:
+            if f'{label_prefix}-instance-' in instance['InstanceName']:
+                occupied_azones.append(instance['ZoneId'])
+
+        LOG.debug(f'Function get_occupied_azones returns: {occupied_azones}')
+        return occupied_azones
 
 
 class ConfigAssistant():
@@ -416,7 +470,8 @@ class TestWorker():
             - 1   - Test executed and failed
             - 101 - General failure while getting AZ
             - 102 - Flavor is out of stock
-            - 103 - Possible AZ is not enabled
+            - 103 - Possible AZs are not enabled
+            - 104 - Eligible AZs are occupied
             - 201 - General failure while provisioning data
         """
         # Get AZone
@@ -447,7 +502,10 @@ class TestWorker():
 if __name__ == '__main__':
 
     worker = TestWorker()
-    worker.run('ecs.i2.xlarge')
+    res = worker.run('ecs.i2.xlarge')
+    print(res)
 
+    # cs = CloudAssistant(ARGS.config)
+    # cs.pick_azone('ecs.i2.xlarge')
 
 exit(0)
