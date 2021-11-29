@@ -27,9 +27,11 @@ ARG_PARSER.add_argument(
 
 ARGS = ARG_PARSER.parse_args()
 
+UTILS_PATH = './utils'
 
-class ContainerMaster():
-    """Handle containers."""
+
+class ContainerAssistant():
+    """Deal with container resources."""
 
     def __init__(self, config={}):
         container_path = config.get('container_path', '/tmp')
@@ -102,7 +104,8 @@ class ContainerMaster():
         test_result = subprocess.run(cmd, shell=True)
 
         # Postprocess the logs
-        import time; time.sleep(10)
+        import time
+        time.sleep(10)
         LOG.info('Postprocessing logs...')
         os.makedirs(os.path.join(container_result_path,
                     'latest', 'testinfo'), exist_ok=True)
@@ -124,79 +127,14 @@ class ContainerMaster():
             return 1
 
 
-class ConfigAssistant():
-    """Provision config for avocado-cloud testing."""
+class CloudAssistant():
+    """Deal with cloud resources."""
 
-    def __init__(self, container_path='/tmp', template_path='./templates',
-                 utils_path='./utils'):
-        self.container_path = container_path
-        self.template_path = template_path
-        self.utils_path = utils_path
-
-    def _copy_default_data(self, container_name):
-        container_data_path = os.path.join(
-            self.container_path, container_name, 'data')
-
-        LOG.debug(f'Copying default data into {container_data_path}')
-        os.makedirs(container_data_path, exist_ok=True)
-        shutil.copy(os.path.join(self.template_path, 'alibaba_common.yaml'),
-                    os.path.join(container_data_path, 'alibaba_common.yaml'))
-        shutil.copy(os.path.join(self.template_path, 'alibaba_testcases.yaml'),
-                    os.path.join(container_data_path, 'alibaba_testcases.yaml'))
-        shutil.copy(os.path.join(self.template_path, 'alibaba_flavors.yaml'),
-                    os.path.join(container_data_path, 'alibaba_flavors.yaml'))
-
-    def provision_data(self, container_name, flavor, keypair, azone, image_name):
-        self._copy_default_data(container_name)
-
-        container_data_path = os.path.join(
-            self.container_path, container_name, 'data')
-
-        # Provision common data
-        try:
-            # Try to get credentials from Alibaba CLI tool config
-            with open(os.path.expanduser('~/.aliyun/config.json'), 'r') as f:
-                cli_config = json.load(f)
-            access_key_id = cli_config.get('profiles')[0].get('access_key_id')
-            access_key_secret = cli_config.get(
-                'profiles')[0].get('access_key_secret')
-        except Exception as ex:
-            LOG.warning('Unable to get Alibaba credentials.')
-            access_key_id = 'Null'
-            access_key_secret = 'Null'
-
-        exec = os.path.join(self.utils_path, 'provision_common_data.sh')
-        file = os.path.join(container_data_path, 'alibaba_common.yaml')
-        cmd = f'{exec} -f {file} -i {access_key_id} -s {access_key_secret} \
-            -k {keypair} -z {azone} -m {image_name} -l {container_name}'
-
-        LOG.debug(f'Shell Command: \n {cmd}')
-        res = subprocess.run(cmd, shell=True)
-        if res.returncode > 0:
-            LOG.error('Failed to provison common data.')
-            return 1
-
-        # Provision flavor data
-        exec = os.path.join(self.utils_path, 'provision_flavor_data.sh')
-        file = os.path.join(container_data_path, 'alibaba_flavors.yaml')
-        cmd = f'{exec} {flavor} {file}'
-
-        res = subprocess.run(cmd, shell=True)
-        if res.returncode > 0:
-            LOG.error('Failed to provison flavor data.')
-            return 1
-
-        return 0
-
-
-class CloudMaster():
-    """Manage the cloud resources."""
-
-    def __init__(self, utils_path='./utils'):
+    def __init__(self):
         # Query all available flavors in the cloud
         distribution_file = '/tmp/aliyun_flavor_distribution.txt'
         if not os.path.exists(distribution_file):
-            exec = os.path.join(utils_path, 'query_flavors.sh')
+            exec = os.path.join(UTILS_PATH, 'query_flavors.sh')
             cmd = f'{exec} -o {distribution_file}'
             subprocess.run(cmd, shell=True)
 
@@ -244,9 +182,10 @@ class CloudMaster():
                         break
 
         if not eligible_azones:
-            LOG.error(f'The flavor "{flavor}" is InStock but it is outside \
-the enabled regions. Please consider enabling more regions! Information: \
-Possible AZs: {possible_azones} Enabled regions: {enabled_regions}')
+            LOG.error(f'The flavor "{flavor}" is InStock but it is outside '
+                      f'the enabled regions. Please consider enabling more '
+                      f'regions! Information: Possible AZs: {possible_azones} '
+                      f'Enabled regions: {enabled_regions}')
             return 1
         else:
             LOG.debug(f'eligible_azones: {eligible_azones}')
@@ -260,8 +199,71 @@ Possible AZs: {possible_azones} Enabled regions: {enabled_regions}')
         return available_azone
 
 
-class AvocadoScheduler():
-    """Schedule containerized avocado-cloud tests for Alibaba Cloud."""
+class ConfigAssistant():
+    """Provision config for avocado-cloud testing."""
+
+    def __init__(self, container_path='/tmp', template_path='./templates'):
+        self.container_path = container_path
+        self.template_path = template_path
+
+    def _copy_default_data(self, container_name):
+        container_data_path = os.path.join(
+            self.container_path, container_name, 'data')
+
+        LOG.debug(f'Copying default data into {container_data_path}')
+        os.makedirs(container_data_path, exist_ok=True)
+        shutil.copy(os.path.join(self.template_path, 'alibaba_common.yaml'),
+                    os.path.join(container_data_path, 'alibaba_common.yaml'))
+        shutil.copy(os.path.join(self.template_path, 'alibaba_testcases.yaml'),
+                    os.path.join(container_data_path, 'alibaba_testcases.yaml'))
+        shutil.copy(os.path.join(self.template_path, 'alibaba_flavors.yaml'),
+                    os.path.join(container_data_path, 'alibaba_flavors.yaml'))
+
+    def provision_data(self, container_name, flavor, keypair, azone, image_name):
+        self._copy_default_data(container_name)
+
+        container_data_path = os.path.join(
+            self.container_path, container_name, 'data')
+
+        # Provision common data
+        try:
+            # Try to get credentials from Alibaba CLI tool config
+            with open(os.path.expanduser('~/.aliyun/config.json'), 'r') as f:
+                cli_config = json.load(f)
+            access_key_id = cli_config.get('profiles')[0].get('access_key_id')
+            access_key_secret = cli_config.get(
+                'profiles')[0].get('access_key_secret')
+        except Exception as ex:
+            LOG.warning('Unable to get Alibaba credentials.')
+            access_key_id = 'Null'
+            access_key_secret = 'Null'
+
+        exec = os.path.join(UTILS_PATH, 'provision_common_data.sh')
+        file = os.path.join(container_data_path, 'alibaba_common.yaml')
+        cmd = f'{exec} -f {file} -i {access_key_id} -s {access_key_secret} \
+            -k {keypair} -z {azone} -m {image_name} -l {container_name}'
+
+        LOG.debug(f'Shell Command: \n {cmd}')
+        res = subprocess.run(cmd, shell=True)
+        if res.returncode > 0:
+            LOG.error('Failed to provison common data.')
+            return 1
+
+        # Provision flavor data
+        exec = os.path.join(UTILS_PATH, 'provision_flavor_data.sh')
+        file = os.path.join(container_data_path, 'alibaba_flavors.yaml')
+        cmd = f'{exec} {flavor} {file}'
+
+        res = subprocess.run(cmd, shell=True)
+        if res.returncode > 0:
+            LOG.error('Failed to provison flavor data.')
+            return 1
+
+        return 0
+
+
+class TestScheduler():
+    """Schedule the containerized avocado-cloud testing."""
 
     def __init__(self, ARGS):
         # Load config
@@ -298,16 +300,14 @@ class AvocadoScheduler():
             LOG.debug(f'image_name: {image_name}')
 
         container_path = container.get('container_path', '/tmp')
-        self.container_master = ContainerMaster(container)
-        self.config_assistant = ConfigAssistant(
-            container_path=container_path, utils_path='./utils')
-        self.cloud_master = CloudMaster(utils_path='./utils')
+        self.container_assistant = ContainerAssistant(container)
+        self.config_assistant = ConfigAssistant(container_path)
+        self.cloud_assistant = CloudAssistant()
 
         self.container = container
         self.container_path = container_path
         self.log_path = self.config.get(
             'log_path', os.path.join(container_path, 'logs'))
-        self.utils_path = './utils'
         self.enabled_regions = enabled_regions
 
         self.image_name = image_name
@@ -315,12 +315,12 @@ class AvocadoScheduler():
 
     def _get_azone(self, flavor, in_used_azones=[]):
         """Get an available AZone for the specified flavor."""
-        return self.cloud_master.get_available_azone(
+        return self.cloud_assistant.get_available_azone(
             flavor=flavor,
             enabled_regions=self.enabled_regions)
 
     def _get_container(self):
-        return self.container_master.get_available_container()
+        return self.container_assistant.get_available_container()
 
     def _provision_test(self, container_name, flavor, azone):
         self.config_assistant.provision_data(
@@ -333,7 +333,7 @@ class AvocadoScheduler():
         return None
 
     def _execute_test(self, container_name):
-        return self.container_master.trigger_container_run(container_name)
+        return self.container_assistant.trigger_container_run(container_name)
 
     def _collect_log(self, container_name):
         result_path = os.path.join(self.container_path,
@@ -352,7 +352,8 @@ class AvocadoScheduler():
         container = self._get_container()
 
         # Provision data
-        self._provision_test(container_name=container, flavor=flavor, azone=azone)
+        self._provision_test(container_name=container,
+                             flavor=flavor, azone=azone)
 
         # Execute the test
         res = self._execute_test(container)
@@ -363,8 +364,13 @@ class AvocadoScheduler():
         return None
 
 
+class TestWorker():
+    """Execute the containerized avocado-cloud testing."""
+    pass
+
+
 if __name__ == '__main__':
-    scheduler = AvocadoScheduler(ARGS)
+    scheduler = TestScheduler(ARGS)
     scheduler.signle_test(flavor='ecs.i2.xlarge')
 
 exit(0)
