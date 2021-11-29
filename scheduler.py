@@ -105,6 +105,16 @@ class ContainerAssistant():
                 return name
 
     def run_container(self, container_name, flavor='flavor', log_path=None):
+        """Trigger a container to run (perform the provisioned test).
+
+        Input:
+            - container_name - which container to run
+            - flavor         - Instance Type
+            - log_path       - where to put the logs
+        Output:
+            - 0 for a passed test, or
+            - 1 for a failed one
+        """
         exec = os.path.join(UTILS_PATH, 'run.sh')
         cmd = f'{exec} -p {self.container_path} -n {container_name} \
             -m {self.container_image}'
@@ -343,9 +353,8 @@ class ConfigAssistant():
         exec = os.path.join(UTILS_PATH, 'provision_common_data.sh')
         file = os.path.join(data_path, 'alibaba_common.yaml')
         access_key_id, access_key_secret = self._get_alibaba_credentials()
-        cmd = f'{exec} -f {file} -i {access_key_id} -s {access_key_secret} \
-            -k {self.keypair} -z {azone} -m {self.image_name} \
-            -l {container_name}'
+        cmd = f'''{exec} -f {file} -i {access_key_id} -s {access_key_secret} \
+-k {self.keypair} -z {azone} -m {self.image_name} -l {container_name}'''
 
         LOG.debug(f'Update "{file}" by command "{cmd}".')
         res = subprocess.run(cmd, shell=True)
@@ -397,18 +406,34 @@ class TestWorker():
 
         self.log_path = log_path
 
-    def start(self, flavor):
+    def run(self, flavor):
+        """Run a single avocado-cloud testing.
+
+        Input:
+            - flavor - Instance Type
+        Output:
+            - 0   - Test executed and passed
+            - 1   - Test executed and failed
+            - 101 - General failure while getting AZ
+            - 102 - Flavor is out of stock
+            - 103 - Possible AZ is not enabled
+            - 201 - General failure while provisioning data
+        """
         # Get AZone
         azone = self.cloud_assistant.pick_azone(flavor)
+        if isinstance(azone, int):
+            return azone + 100
 
         # Get container
         container = self.container_assistant.pick_container()
 
         # Provision data
-        self.config_assistant.provision_data(
+        res = self.config_assistant.provision_data(
             container_name=container,
             flavor=flavor,
             azone=azone)
+        if res > 0:
+            return 201
 
         # Execute the test and collect log
         res = self.container_assistant.run_container(
@@ -422,7 +447,7 @@ class TestWorker():
 if __name__ == '__main__':
 
     worker = TestWorker()
-    worker.start('ecs.i2.xlarge')
+    worker.run('ecs.i2.xlarge')
 
 
 exit(0)
