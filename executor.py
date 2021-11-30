@@ -274,7 +274,7 @@ Possible AZs: {possible_azones} Enabled regions: {self.enabled_regions}''')
             return 3
 
         # Get occupied AZs and filter them out
-        occupied_azones = self.get_occupied_azones()
+        occupied_azones = self.get_occupied_azones(azones=eligible_azones)
         available_azones = [
             x for x in eligible_azones if x not in occupied_azones]
 
@@ -307,9 +307,11 @@ Occupied Zone: {occupied_azones}''')
         LOG.debug(f'Function _get_all_regions returns: {regions}')
         return regions
 
-    def _get_all_instances(self):
+    def _get_all_instances(self, regions=None):
+        if not regions:
+            regions = self._get_all_regions()
+
         instances = []
-        regions = self._get_all_regions()
         for region in regions:
             data = self._aliyun_cli(
                 f'aliyun ecs DescribeInstances --RegionId {region} --PageSize 50')
@@ -324,9 +326,25 @@ Occupied Zone: {occupied_azones}''')
         LOG.debug(f'Function _get_all_instances returns: {instances}')
         return instances
 
-    def get_occupied_azones(self, label_prefix='qeauto'):
+    def get_occupied_azones(self, label_prefix='qeauto', azones=None):
+        if azones:
+            # Convert AZs to regions
+            regions = []
+            for azone in azones:
+                if azone[-2:-1] == '-':
+                    # Ex. "cn-beijing-h"
+                    region = azone[:-2]
+                else:
+                    # Ex. "us-west-1a"
+                    region = azone[:-1]
+                if region not in regions:
+                    regions.append(region)
+        else:
+            regions = None
+
+        instances = self._get_all_instances(regions)
+
         occupied_azones = []
-        instances = self._get_all_instances()
         for instance in instances:
             if f'{label_prefix}-instance-' in instance['InstanceName']:
                 occupied_azones.append(instance['ZoneId'])
