@@ -101,14 +101,17 @@ class ContainerAssistant():
         Input:
             N/A
         Output:
-            - container (string) or '' if no available ones
+            - container (string) or None if no available ones
         """
         status = self.get_container_status()
         for name in status.keys():
             if status[name] == 'available':
-                LOG.info(f'Picked container "{name}" '
+                LOG.debug(f'Picked container "{name}" '
                          f'from "{self.container_pool}".')
                 return name
+        
+        LOG.debug('No idle container in the pool.')
+        return None
 
     def run_container(self, container_name, flavor='flavor', log_path=None):
         """Trigger a container to run (perform the provisioned test).
@@ -491,15 +494,18 @@ class TestExecutor():
             - 102 - Flavor is out of stock
             - 103 - Possible AZs are not enabled
             - 104 - Eligible AZs are occupied
-            - 201 - General failure while provisioning data
+            - 111 - Cannot get idle container
+            - 121 - General failure while provisioning data
         """
-        # Get AZone
+        # Get AZ
         azone = self.cloud_assistant.pick_azone(flavor)
         if isinstance(azone, int):
             return azone + 100
 
         # Get container
         container = self.container_assistant.pick_container()
+        if not container:
+            return 111
 
         # Provision data
         res = self.config_assistant.provision_data(
@@ -507,15 +513,17 @@ class TestExecutor():
             flavor=flavor,
             azone=azone)
         if res > 0:
-            return 201
+            return 121
 
         # Execute the test and collect log
         res = self.container_assistant.run_container(
             container_name=container,
             flavor=flavor,
             log_path=self.log_path)
+        if res > 0:
+            return 1
 
-        return res
+        return 0
 
 
 if __name__ == '__main__':
