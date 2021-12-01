@@ -47,9 +47,7 @@ done
 
 : >$file
 for flavor in $flavors; do
-	echo "[[tasks]]" >>$file
-	echo "flavor = '$flavor'" >>$file
-	echo >>$file
+	echo "['$flavor']" >>$file
 done
 
 exit 0
