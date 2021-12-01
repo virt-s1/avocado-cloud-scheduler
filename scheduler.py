@@ -63,6 +63,9 @@ class TestScheduler():
         self.tasks = tasks
         self.queue = []
 
+        self.max_threads = 4
+        self.threads = []
+
         # save tasks
         self._save_tasks()
 
@@ -71,7 +74,7 @@ class TestScheduler():
         self.logpath = '/home/cheshi/mirror/containers/avocado_scheduler/logs'
 
         self.producer = threading.Thread(
-            target=self.producer, name='Producer', daemon=False)
+            target=self.producer, name='Producer', daemon=True)
         self.consumer = threading.Thread(
             target=self.consumer, name='Consumer', daemon=False)
 
@@ -92,15 +95,30 @@ class TestScheduler():
                 self._save_tasks()
 
     def consumer(self):
+        # Start after producer
         time.sleep(2)
 
         while True:
             time.sleep(1)
-            if len(self.queue) > 0:
+
+            # Run tasks if possible
+            if len(self.threads) < self.max_threads and len(self.queue) > 0:
                 flavor = self.queue.pop(0)
                 t = threading.Thread(target=self.run_task,
                                      args=(flavor,), name='RunTask')
                 t.start()
+                self.threads.append(t)
+
+            # Clean up finished tasks
+            self.threads = [x for x in self.threads if x.is_alive()]
+            LOG.debug(f'Function consumer: Tasks in Queue: {len(self.queue)}; '
+                      f'Running Threads: {len(self.threads)}')
+
+            # Exits if no more tasks
+            if len(self.threads) == 0 and len(self.queue) == 0:
+                LOG.info(
+                    'Consumer exits since there are no more tasks to process.')
+                break
 
     def start(self):
         self.producer.start()
@@ -174,6 +192,7 @@ if __name__ == '__main__':
 
     ts = TestScheduler()
     ts.start()
+    ts.stop()
 
 
 exit(0)
