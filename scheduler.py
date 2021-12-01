@@ -44,7 +44,7 @@ TEMPLATE_PATH = './templates'
 class TestScheduler():
     """Schedule the containerized avocado-cloud testing."""
 
-    def __init__(self, processes=2):
+    def __init__(self):
         # load tasks
         try:
             with open(f'{ARGS.tasklist}', 'r') as f:
@@ -53,28 +53,62 @@ class TestScheduler():
             LOG.error(f'Failed to load tasks from {ARGS.tasklist}: {ex}')
             exit(1)
 
+        for k, v in tasks.items():
+            v.setdefault('status')
+            v.setdefault('return_code')
+
         LOG.debug(f'Tasks Loaded: {tasks}')
-        self.tasks = tasks
+
         self.lock = threading.Lock()
+        self.tasks = tasks
+        self.queue = []
+
+        # save tasks
+        self._save_tasks()
 
         # TODO: update the hard code
         self.repopath = '/home/cheshi/mirror/codespace/avocado-cloud-scheduler'
         self.logpath = '/home/cheshi/mirror/containers/avocado_scheduler/logs'
 
-    def task(self):
-        for task in self.tasks:
-            yield task
+        self.producer = threading.Thread(
+            target=self.producer, name='Producer', daemon=False)
+        self.consumer = threading.Thread(
+            target=self.consumer, name='Consumer', daemon=False)
+
+    def producer(self):
+        while True:
+            time.sleep(1)
+            is_save_needed = False
+
+            self.lock.acquire(timeout=60)
+            for k, v in self.tasks.items():
+                if v['status'] is None:
+                    self.queue.append(k)
+                    v['status'] = 'WAITING'
+                    is_save_needed = True
+            self.lock.release()
+
+            if is_save_needed:
+                self._save_tasks()
+
+    def consumer(self):
+        time.sleep(2)
+
+        while True:
+            time.sleep(1)
+            if len(self.queue) > 0:
+                flavor = self.queue.pop(0)
+                t = threading.Thread(target=self.run_task,
+                                     args=(flavor,), name='RunTask')
+                t.start()
 
     def start(self):
-        for flavor in self.tasks.keys():
-            LOG.debug(flavor)
-            self.update_task(flavor, status='WAITING', return_code=255)
-            t = threading.Thread(target=self.run_task,
-                                 args=(flavor,), name='RunTask')
-            t.start()
+        self.producer.start()
+        self.consumer.start()
 
-    def stop():
-        pass
+    def stop(self):
+        self.consumer.join()
+        return 0
 
     def update_task(self, flavor, status=None, return_code=None):
         """Update the status for a specified task."""
@@ -94,6 +128,7 @@ class TestScheduler():
         """Save to the tasklist file."""
         self.lock.acquire(timeout=60)
         try:
+            print(self.tasks)
             with open(f'{ARGS.tasklist}', 'w') as f:
                 toml.dump(self.tasks, f)
         except Exception as ex:
@@ -106,8 +141,7 @@ class TestScheduler():
 
     def run_task(self, flavor):
         LOG.info(f'Task for "{flavor}" is started.')
-        LOG.debug(f'run_task self.lock: {self.lock}')
-        self.update_task(flavor, status='RUNNING', return_code=255)
+        self.update_task(flavor, status='RUNNING')
         ts = time.strftime('%y%m%d%H%M%S', time.localtime())
         logfile = os.path.join(self.logpath, f'task_{flavor}_{ts}.log')
         #cmd = f'nohup {self.repopath}/executor.py --flavor {flavor} > {logfile}'
@@ -140,13 +174,6 @@ if __name__ == '__main__':
 
     ts = TestScheduler()
     ts.start()
-
-    # for flavor in ts.tasks.keys():
-    #     LOG.debug(flavor)
-    #     ts.update_task(flavor, status='WAITING', return_code=255)
-    #     t = threading.Thread(target=ts.run_task,
-    #                          args=(flavor,), name='RunTask')
-    #     t.start()
 
 
 exit(0)
