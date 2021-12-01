@@ -386,7 +386,7 @@ class ConfigAssistant():
         os.makedirs(result_path, exist_ok=True)
 
         # Deliver configure files
-        # TODO: enhance this logic
+        # TODO: enhance this logic and add pem file
         LOG.debug(f'Copying default data into {data_path}')
         shutil.copy(os.path.join(TEMPLATE_PATH, 'alibaba_common.yaml'),
                     os.path.join(data_path, 'alibaba_common.yaml'))
