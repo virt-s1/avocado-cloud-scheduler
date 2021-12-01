@@ -107,9 +107,9 @@ class ContainerAssistant():
         for name in status.keys():
             if status[name] == 'available':
                 LOG.debug(f'Picked container "{name}" '
-                         f'from "{self.container_pool}".')
+                          f'from "{self.container_pool}".')
                 return name
-        
+
         LOG.debug('No idle container in the pool.')
         return None
 
@@ -488,24 +488,24 @@ class TestExecutor():
         Input:
             - flavor - Instance Type
         Output:
-            - 0   - Test executed and passed
-            - 1   - Test executed and failed
-            - 101 - General failure while getting AZ
-            - 102 - Flavor is out of stock
-            - 103 - Possible AZs are not enabled
-            - 104 - Eligible AZs are occupied
-            - 111 - Cannot get idle container
-            - 121 - General failure while provisioning data
+            - 0  - Test executed and passed
+            - 11 - Test failed (general)
+            - 21 - General failure while getting AZ
+            - 22 - Flavor is out of stock
+            - 23 - Possible AZs are not enabled
+            - 24 - Eligible AZs are occupied
+            - 31 - Cannot get idle container
+            - 41 - General failure while provisioning data
         """
         # Get AZ
         azone = self.cloud_assistant.pick_azone(flavor)
         if isinstance(azone, int):
-            return azone + 100
+            return azone + 20
 
         # Get container
         container = self.container_assistant.pick_container()
         if not container:
-            return 111
+            return 31
 
         # Provision data
         res = self.config_assistant.provision_data(
@@ -513,7 +513,7 @@ class TestExecutor():
             flavor=flavor,
             azone=azone)
         if res > 0:
-            return 121
+            return res + 40
 
         # Execute the test and collect log
         res = self.container_assistant.run_container(
@@ -521,7 +521,7 @@ class TestExecutor():
             flavor=flavor,
             log_path=self.log_path)
         if res > 0:
-            return 1
+            return res + 10
 
         return 0
 

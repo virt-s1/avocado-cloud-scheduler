@@ -167,14 +167,14 @@ class TestScheduler():
         res = subprocess.run(cmd, shell=True)
         time.sleep(random.random() * 3)
 
-        # - 0   - Test executed and passed
-        # - 1   - Test executed and failed
-        # - 101 - General failure while getting AZ
-        # - 102 - Flavor is out of stock
-        # - 103 - Possible AZs are not enabled
-        # - 104 - Eligible AZs are occupied
-        # - 111 - Cannot get idle container
-        # - 121 - General failure while provisioning data
+        # - 0  - Test executed and passed
+        # - 11 - Test failed (general)
+        # - 21 - General failure while getting AZ
+        # - 22 - Flavor is out of stock
+        # - 23 - Possible AZs are not enabled
+        # - 24 - Eligible AZs are occupied
+        # - 31 - Cannot get idle container
+        # - 41 - General failure while provisioning data
         if res.returncode > -1:
             # update the tasklist
             self.update_task(flavor, status='FINISHED',
