@@ -102,7 +102,7 @@ class TestScheduler():
                 self._save_tasks()
 
     def consumer(self):
-        # Start after producer
+        # Start after the Producer
         time.sleep(2)
 
         while True:
@@ -123,9 +123,13 @@ class TestScheduler():
 
             # Exits if no more tasks
             if len(self.threads) == 0 and len(self.queue) == 0:
-                LOG.info(
-                    'Consumer exits since there are no more tasks to process.')
-                break
+                # Wait new task for a while
+                time.sleep(10)
+
+                if len(self.queue) == 0:
+                    LOG.info('Consumer exits since there are no more tasks '
+                             'to process.')
+                    break
 
     def start(self):
         self.producer.start()
@@ -176,7 +180,6 @@ class TestScheduler():
         """Save to the tasklist file."""
         self.lock.acquire(timeout=60)
         try:
-            print(self.tasks)
             with open(f'{ARGS.tasklist}', 'w') as f:
                 toml.dump(self.tasks, f)
         except Exception as ex:
