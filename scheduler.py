@@ -225,14 +225,15 @@ class TestScheduler():
 
         if self.dry_run:
             time.sleep(random.random() * 3 + 2)
-            res = random.choice([0, 11, 21, 22, 23, 24, 31, 41])
+            return_code = random.choice([0, 11, 21, 22, 23, 24, 31, 41])
         else:
             res = subprocess.run(cmd, shell=True)
+            return_code = res.returncode
 
         stop_sec = time.time()
         time_stop = time.strftime(
             '%Y-%m-%d %H:%M:%S', time.localtime(stop_sec))
-        time_used = '{%.2f} s'.format(stop_sec - start_sec)
+        time_used = round((stop_sec - start_sec), 2)
 
         # - 0  - Test executed and passed (test_passed)
         # - 11 - Test failed (test_general_error)
@@ -252,7 +253,7 @@ class TestScheduler():
 
         LOG.info(f'Task for "{flavor}" is finished.')
 
-        return res.returncode
+        return return_code
 
     def post_process(self, code):
         LOG.debug(f'Got return code {code} in post_process function.')
