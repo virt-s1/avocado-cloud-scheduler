@@ -45,6 +45,14 @@ class TestScheduler():
     """Schedule the containerized avocado-cloud testing."""
 
     def __init__(self):
+        # Parse config
+        # TODO: update the hard code
+        self.repopath = '/home/cheshi/mirror/codespace/avocado-cloud-scheduler'
+        self.logpath = '/home/cheshi/mirror/containers/avocado_scheduler/logs'
+        self.dry_run = True
+        self.max_retries_testcase = 200
+        self.max_retries_resource = 10
+
         # load tasks
         try:
             with open(f'{ARGS.tasklist}', 'r') as f:
@@ -55,6 +63,10 @@ class TestScheduler():
 
         for k, v in tasks.items():
             v.setdefault('status')
+            v.setdefault('remaining_retries_testcase',
+                         self.max_retries_testcase)
+            v.setdefault('remaining_retries_resource',
+                         self.max_retries_resource)
 
         LOG.debug(f'Tasks Loaded: {tasks}')
 
@@ -68,13 +80,6 @@ class TestScheduler():
         # save tasks
         self._save_tasks()
 
-        # TODO: update the hard code
-        self.repopath = '/home/cheshi/mirror/codespace/avocado-cloud-scheduler'
-        self.logpath = '/home/cheshi/mirror/containers/avocado_scheduler/logs'
-        self.dry_run = True
-        self.max_retries_testcase = 2
-        self.max_retries_resource = 10
-
         self.producer = threading.Thread(
             target=self.producer, name='Producer', daemon=True)
         self.consumer = threading.Thread(
@@ -87,7 +92,7 @@ class TestScheduler():
 
             self.lock.acquire(timeout=60)
             for k, v in self.tasks.items():
-                if not v.get('status'):
+                if v.get('status') in (None, 'NEEDRETRY'):
                     self.queue.append(k)
                     v['status'] = 'WAITING'
                     is_save_needed = True
@@ -130,72 +135,42 @@ class TestScheduler():
         self.consumer.join()
         return 0
 
-    def update_task(self, flavor, ask_retry_testcase=False, ask_retry_resource=False, **args):
+    def update_task(self, flavor, ask_for_retry=False,
+                    retry_counter_name='remaining_retries_testcase', **args):
         """Update the status for a specified task."""
 
-        if ask_retry_testcase and ask_retry_resource:
-            LOG.error(
-                'ask_retry_testcase and ask_retry_resource cannot be true at the same time.')
-            return 1
-
+        # Lock
         self.lock.acquire(timeout=60)
-        _dict = self.tasks[flavor]
-
-        if ask_retry_testcase:
-            _remaining_retries = _dict.get(
-                'remaining_retries_testcase', self.max_retries_testcase)
-            if _remaining_retries > 0:
-                # General update
-                _dict.update(args)
-
-                # Save history (remove) and remaining retries
-                _history = _dict.pop('history', [])
-                _dict['remaining_retries_testcase'] = _remaining_retries
-
-                # Append current entry to the history
-                _history.append(_dict.copy())
-
-                # Rebuild the task info
-                _dict.clear()
-                _dict['history'] = _history
-                _dict['remaining_retries_testcase'] = _remaining_retries - 1
-            else:
-                # No more retries, return and keep the task intact
-                self.lock.release()
-                return 2
-
-        if ask_retry_resource:
-            _remaining_retries = _dict.get(
-                'remaining_retries_resource', self.max_retries_resource)
-            if _remaining_retries > 0:
-                # General update
-                _dict.update(args)
-
-                # Save history (remove) and remaining retries
-                _history = _dict.pop('history', [])
-                _dict['remaining_retries_resource'] = _remaining_retries
-
-                # Append current entry to the history
-                _history.append(_dict.copy())
-
-                # Rebuild the task info
-                _dict.clear()
-                _dict['history'] = _history
-                _dict['remaining_retries_resource'] = _remaining_retries - 1
-            else:
-                # No more retries, return and keep the task intact
-                self.lock.release()
-                return 2
 
         # General update
+        _dict = self.tasks[flavor]
         _dict.update(args)
 
+        if ask_for_retry:
+            if _dict.get(retry_counter_name, 0) > 0:
+                # Save varibles to rebuild the task info
+                _remaining_retries_testcase = _dict.get(
+                    'remaining_retries_testcase', 0)
+                _remaining_retries_resource = _dict.get(
+                    'remaining_retries_resource', 0)
+
+                # Append current entry to the history entries
+                _history = _dict.pop('history', [])
+                _history.append(_dict.copy())
+
+                # Rebuild the task info
+                _dict.clear()
+                _dict['status'] = 'NEEDRETRY'
+                _dict['remaining_retries_testcase'] = _remaining_retries_testcase
+                _dict['remaining_retries_resource'] = _remaining_retries_resource
+                _dict[retry_counter_name] -= 1
+                _dict['history'] = _history
+
+        # Unlock
         self.lock.release()
 
         LOG.debug(f'Function update_task({flavor}) self.tasks: {self.tasks}')
         self._save_tasks()
-
-        return 0
 
     def _save_tasks(self):
         """Save to the tasklist file."""
@@ -245,11 +220,15 @@ class TestScheduler():
         # - 41 - General failure while provisioning data (provision_error)
 
         # Update the task
-        if res.returncode == 0:
-            self.update_task(flavor, status='FINISHED',
-                             return_code=res.returncode,
-                             time_stop=time_stop,
-                             time_used=time_used)
+        if return_code > -1:
+            res = self.update_task(
+                flavor,
+                ask_for_retry=True,
+                retry_counter_name='remaining_retries_testcase',
+                status='FINISHED',
+                return_code=return_code,
+                time_stop=time_stop,
+                time_used=time_used)
 
         LOG.info(f'Task for "{flavor}" is finished.')
 
@@ -262,9 +241,8 @@ class TestScheduler():
 if __name__ == '__main__':
 
     ts = TestScheduler()
-    # ts.start()
-    # ts.stop()
-    ts.update_task('ecs.hfg5.xlarge', True)
+    ts.start()
+    ts.stop()
 
 
 exit(0)
