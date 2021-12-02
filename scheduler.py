@@ -55,7 +55,6 @@ class TestScheduler():
 
         for k, v in tasks.items():
             v.setdefault('status')
-            v.setdefault('return_code')
 
         LOG.debug(f'Tasks Loaded: {tasks}')
 
@@ -72,6 +71,9 @@ class TestScheduler():
         # TODO: update the hard code
         self.repopath = '/home/cheshi/mirror/codespace/avocado-cloud-scheduler'
         self.logpath = '/home/cheshi/mirror/containers/avocado_scheduler/logs'
+        self.dry_run = True
+        self.max_retries_testcase = 2
+        self.max_retries_resource = 10
 
         self.producer = threading.Thread(
             target=self.producer, name='Producer', daemon=True)
@@ -85,7 +87,7 @@ class TestScheduler():
 
             self.lock.acquire(timeout=60)
             for k, v in self.tasks.items():
-                if v['status'] is None:
+                if not v.get('status'):
                     self.queue.append(k)
                     v['status'] = 'WAITING'
                     is_save_needed = True
@@ -128,13 +130,66 @@ class TestScheduler():
         self.consumer.join()
         return 0
 
-    def update_task(self, flavor, status=None, return_code=None):
+    def update_task(self, flavor, ask_retry_testcase=False, ask_retry_resource=False, **args):
         """Update the status for a specified task."""
+
+        if ask_retry_testcase and ask_retry_resource:
+            LOG.error(
+                'ask_retry_testcase and ask_retry_resource cannot be true at the same time.')
+            return 1
+
         self.lock.acquire(timeout=60)
-        if status is not None:
-            self.tasks[flavor]['status'] = status
-        if return_code is not None:
-            self.tasks[flavor]['return_code'] = return_code
+        _dict = self.tasks[flavor]
+
+        if ask_retry_testcase:
+            _remaining_retries = _dict.get(
+                'remaining_retries_testcase', self.max_retries_testcase)
+            if _remaining_retries > 0:
+                # General update
+                _dict.update(args)
+
+                # Save history (remove) and remaining retries
+                _history = _dict.pop('history', [])
+                _dict['remaining_retries_testcase'] = _remaining_retries
+
+                # Append current entry to the history
+                _history.append(_dict.copy())
+
+                # Rebuild the task info
+                _dict.clear()
+                _dict['history'] = _history
+                _dict['remaining_retries_testcase'] = _remaining_retries - 1
+            else:
+                # No more retries, return and keep the task intact
+                self.lock.release()
+                return 2
+
+        if ask_retry_resource:
+            _remaining_retries = _dict.get(
+                'remaining_retries_resource', self.max_retries_resource)
+            if _remaining_retries > 0:
+                # General update
+                _dict.update(args)
+
+                # Save history (remove) and remaining retries
+                _history = _dict.pop('history', [])
+                _dict['remaining_retries_resource'] = _remaining_retries
+
+                # Append current entry to the history
+                _history.append(_dict.copy())
+
+                # Rebuild the task info
+                _dict.clear()
+                _dict['history'] = _history
+                _dict['remaining_retries_resource'] = _remaining_retries - 1
+            else:
+                # No more retries, return and keep the task intact
+                self.lock.release()
+                return 2
+
+        # General update
+        _dict.update(args)
+
         self.lock.release()
 
         LOG.debug(f'Function update_task({flavor}) self.tasks: {self.tasks}')
@@ -159,26 +214,41 @@ class TestScheduler():
 
     def run_task(self, flavor):
         LOG.info(f'Task for "{flavor}" is started.')
-        self.update_task(flavor, status='RUNNING')
-        ts = time.strftime('%y%m%d%H%M%S', time.localtime())
-        logfile = os.path.join(self.logpath, f'task_{flavor}_{ts}.log')
-        #cmd = f'nohup {self.repopath}/executor.py --flavor {flavor} > {logfile}'
-        cmd = 'sleep 2; exit 123'
-        res = subprocess.run(cmd, shell=True)
-        time.sleep(random.random() * 3)
+        start_sec = time.time()
+        time_start = time.strftime(
+            '%Y-%m-%d %H:%M:%S', time.localtime(start_sec))
 
-        # - 0  - Test executed and passed
-        # - 11 - Test failed (general)
-        # - 21 - General failure while getting AZ
-        # - 22 - Flavor is out of stock
-        # - 23 - Possible AZs are not enabled
-        # - 24 - Eligible AZs are occupied
-        # - 31 - Cannot get idle container
-        # - 41 - General failure while provisioning data
-        if res.returncode > -1:
-            # update the tasklist
+        self.update_task(flavor, status='RUNNING', time_start=time_start)
+        ts = time.strftime('%y%m%d%H%M%S', time.localtime(start_sec))
+        logfile = os.path.join(self.logpath, f'task_{flavor}_{ts}.log')
+        cmd = f'nohup {self.repopath}/executor.py --flavor {flavor} > {logfile}'
+
+        if self.dry_run:
+            time.sleep(random.random() * 3 + 2)
+            res = random.choice([0, 11, 21, 22, 23, 24, 31, 41])
+        else:
+            res = subprocess.run(cmd, shell=True)
+
+        stop_sec = time.time()
+        time_stop = time.strftime(
+            '%Y-%m-%d %H:%M:%S', time.localtime(stop_sec))
+        time_used = '{%.2f} s'.format(stop_sec - start_sec)
+
+        # - 0  - Test executed and passed (test_passed)
+        # - 11 - Test failed (test_general_error)
+        # - 21 - General failure while getting AZ (flavor_general_error)
+        # - 22 - Flavor is out of stock (flavor_no_stock)
+        # - 23 - Possible AZs are not enabled (flavor_azone_disabled)
+        # - 24 - Eligible AZs are occupied (flavor_azone_occupied)
+        # - 31 - Cannot get idle container (container_all_busy)
+        # - 41 - General failure while provisioning data (provision_error)
+
+        # Update the task
+        if res.returncode == 0:
             self.update_task(flavor, status='FINISHED',
-                             return_code=res.returncode)
+                             return_code=res.returncode,
+                             time_stop=time_stop,
+                             time_used=time_used)
 
         LOG.info(f'Task for "{flavor}" is finished.')
 
@@ -191,8 +261,9 @@ class TestScheduler():
 if __name__ == '__main__':
 
     ts = TestScheduler()
-    ts.start()
-    ts.stop()
+    # ts.start()
+    # ts.stop()
+    ts.update_task('ecs.hfg5.xlarge', True)
 
 
 exit(0)
