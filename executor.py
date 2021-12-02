@@ -95,6 +95,25 @@ class ContainerAssistant():
 
         return status
 
+    def random_pick_container(self, containers):
+        """Randomly pick a container from the list of containers.
+
+        Input:
+            - containers - List of containers
+        Output:
+            - container (string) or '' if azones is empty.
+        """
+        if not containers:
+            return ''
+
+        # Randomly pick a container
+        idx = random.randint(0, len(containers)-1)
+        container = containers[idx]
+
+        LOG.debug(
+            f'Randomly picked container "{container}" from "{containers}".')
+        return container
+
     def pick_container(self):
         """Pick an container for the test.
 
@@ -104,13 +123,17 @@ class ContainerAssistant():
             - container (string) or None if no available ones
         """
         status = self.get_container_status()
-        for name in status.keys():
-            if status[name] == 'available':
-                LOG.debug(f'Picked container "{name}" '
-                          f'from "{self.container_pool}".')
-                return name
+        available_containers = [
+            x for x in status.keys() if status[x] == 'available']
 
-        LOG.debug('No idle container in the pool.')
+        if not available_containers:
+            LOG.debug('No idle container in the pool.')
+
+        # Randomly pick a container
+        container = self.random_pick_container(available_containers)
+        LOG.info(
+            f'Picked container "{container}" from "{available_containers}".')
+
         return None
 
     def run_container(self, container_name, flavor='flavor', log_path=None):
