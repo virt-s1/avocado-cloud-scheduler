@@ -107,10 +107,10 @@ class ContainerAssistant():
         Input:
             - containers - List of containers
         Output:
-            - container (string) or '' if azones is empty.
+            - container (string) or None if azones is empty.
         """
         if not containers:
-            return ''
+            return None
 
         # Randomly pick a container
         idx = random.randint(0, len(containers)-1)
@@ -134,13 +134,14 @@ class ContainerAssistant():
 
         if not available_containers:
             LOG.debug('No idle container in the pool.')
+            return None
 
         # Randomly pick a container
         container = self.random_pick_container(available_containers)
         LOG.info(
             f'Picked container "{container}" from "{available_containers}".')
 
-        return None
+        return container
 
     def run_container(self, container_name, flavor='flavor', log_path=None):
         """Trigger a container to run (perform the provisioned test).
@@ -151,7 +152,7 @@ class ContainerAssistant():
             - log_path       - where to put the logs
         Output:
             - 0 for a passed test, or
-            - 1 for a failed one
+            - !0 for a failed one
         """
         exec = os.path.join(UTILS_PATH, 'run.sh')
         cmd = f'{exec} -p {self.container_path} -n {container_name} \
@@ -161,16 +162,22 @@ class ContainerAssistant():
 
         LOG.info(f'Running test against "{flavor}" from container '
                  f'"{container_name}"...')
-        res = subprocess.run(cmd, shell=True)
 
-        if res.returncode == 0:
+        if self.dry_run:
+            time.sleep(random.random() * 3 + 2)
+            return_code = random.randint(0, 6)
+        else:
+            res = subprocess.run(cmd, shell=True)
+            return_code = res.returncode
+
+        if return_code == 0:
             LOG.info(f'PASSED! Test against "{flavor}" from container '
                      f'"{container_name}".')
-            return 0
         else:
             LOG.info(f'FAILED! Test against "{flavor}" from container '
                      f'"{container_name}".')
-            return 1
+
+        return return_code
 
 
 class CloudAssistant():
