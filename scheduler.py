@@ -237,7 +237,8 @@ class TestScheduler():
 
         if self.dry_run:
             time.sleep(random.random() * 3 + 2)
-            return_code = random.choice([0, 11, 21, 22, 23, 24, 31, 41])
+            return_code = random.choice(
+                [0, 11, 12, 13, 14, 15, 16, 21, 22, 23, 24, 31, 41])
         else:
             res = subprocess.run(cmd, shell=True)
             return_code = res.returncode
@@ -251,9 +252,9 @@ class TestScheduler():
         # - 11 - Test error due to general error (test_general_error)
         # - 12 - Test error due to container error (test_container_error)
         # - 13 - Test error due to log delivery error (test_log_delivery_error)
-        # - 14 - Test failed due to general error (test_failure_general)
-        # - 15 - Test failed due to error cases (test_failure_error_cases)
-        # - 16 - Test failed due to failure cases (test_failure_failure_cases)
+        # - 14 - Test failed due to general error (test_failed_general)
+        # - 15 - Test failed due to error cases (test_failed_error_cases)
+        # - 16 - Test failed due to failure cases (test_failed_failure_cases)
         # - 21 - General failure while getting AZ (flavor_general_error)
         # - 22 - Flavor is out of stock (flavor_no_stock)
         # - 23 - Possible AZs are not enabled (flavor_azone_disabled)
@@ -266,9 +267,9 @@ class TestScheduler():
             11: 'test_general_error',
             12: 'test_container_error',
             13: 'test_log_delivery_error',
-            14: 'test_failure_general',
-            15: 'test_failure_error_cases',
-            16: 'test_failure_failure_cases',
+            14: 'test_failed_general',
+            15: 'test_failed_error_cases',
+            16: 'test_failed_failure_cases',
             21: 'flavor_general_error',
             22: 'flavor_no_stock',
             23: 'flavor_azone_disabled',
@@ -279,16 +280,16 @@ class TestScheduler():
 
         if return_code in (12, 23, 24, 31):
             # Need to retry for resouces
-            _ask_for_retry=True
-            _retry_counter_name='remaining_retries_resource'
+            _ask_for_retry = True
+            _retry_counter_name = 'remaining_retries_resource'
         elif return_code in (15,):
             # Need to retry for testcase
-            _ask_for_retry=True
-            _retry_counter_name='remaining_retries_testcase'
+            _ask_for_retry = True
+            _retry_counter_name = 'remaining_retries_testcase'
         else:
             # No need to retry
-            _ask_for_retry=False
-            _retry_counter_name=None
+            _ask_for_retry = False
+            _retry_counter_name = None
 
         # Update the task info
         res = self.update_task(
