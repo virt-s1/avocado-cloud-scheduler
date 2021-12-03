@@ -2,6 +2,15 @@
 
 # Description: Run avocado-cloud test from container.
 # Maintainer: Charles Shih <schrht@gmail.com>
+#
+# Exit code:
+# - 0: test succeed
+# - 1: test error due to general error
+# - 2: test error due to container error
+# - 3: test error due to log delivery error
+# - 4: test failed due to general error
+# - 5: test failed due to error cases
+# - 6: test failed due to failure cases (no error case)
 
 function show_usage() {
     echo "Run avocado-cloud test from container." >&2
@@ -72,16 +81,45 @@ podman run --name ${container_name} --rm -it \
     ${container_image} /bin/bash ./container/bin/test_alibaba.sh
 result=$?
 
+# Analyse result
+if [ $result -ge 125 ] && [ $result -le 127 ]; then
+    # 125/126/127 - contianer error
+    return_code=2
+elif [ $result -eq 0 ]; then
+    # 0 - test succeed
+    return_code=0
+elif [ $result -gt 0 ]; then
+    # 1 - test failed, do further analysis
+    echo "Test finished (return_code > 0), do furthur analysis..." >&2
+    results_file=${result_path}/latest/results.json
+    error_num=$(cat $results_file | jq -r '.errors')
+    fail_num=$(cat $results_file | jq -r '.failures')
+    echo "Statistics from results.json: errors=$error_num; failures=$fail_num;" >&2
+
+    if [ -z "$error_num" ] || [ "$fail_num" = "null" ]; then
+        return_code=4 # test failed due to general error
+    elif [ -z "$error_num" ] || [ "$error_num" = "null" ]; then
+        return_code=4
+    elif [ $error_num -gt 0 ]; then
+        return_code=5 # test failed due to error cases
+    elif [ $fail_num -gt 0 ]; then
+        return_code=6 # test failed due to failure cases
+    else
+        return_code=4
+    fi
+fi
+
+# Teardown
+echo "Teardown..." >&2
+
 testinfo_path=${result_path}/latest/testinfo
 mkdir -p ${testinfo_path}
 cp ${data_path}/*.yaml ${testinfo_path}/
 
-# Teardown
-echo "Teardown..." >&2
 if [ -d "${log_path}" ]; then
     logdir=$(ls -td ${result_path}/job-* | head -n 1)
     echo "Moving $logdir to ${log_path} ..." >&2
-    mv $logdir ${log_path}/
+    mv $logdir ${log_path}/ || exit 3
 fi
 
-exit $result
+exit $return_code

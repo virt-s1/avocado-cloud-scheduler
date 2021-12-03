@@ -511,14 +511,19 @@ class TestExecutor():
         Input:
             - flavor - Instance Type
         Output:
-            - 0  - Test executed and passed
-            - 11 - Test failed (general)
-            - 21 - General failure while getting AZ
-            - 22 - Flavor is out of stock
-            - 23 - Possible AZs are not enabled
-            - 24 - Eligible AZs are occupied
-            - 31 - Cannot get idle container
-            - 41 - General failure while provisioning data
+            - 0  - Test executed and passed (test_passed)
+            - 11 - Test error due to general error (test_general_error)
+            - 12 - Test error due to container error (test_container_error)
+            - 13 - Test error due to log delivery error (test_log_delivery_error)
+            - 14 - Test failed due to general error (test_failure_general)
+            - 15 - Test failed due to error cases (test_failure_error_cases)
+            - 16 - Test failed due to failure cases (test_failure_failure_cases)
+            - 21 - General failure while getting AZ (flavor_general_error)
+            - 22 - Flavor is out of stock (flavor_no_stock)
+            - 23 - Possible AZs are not enabled (flavor_azone_disabled)
+            - 24 - Eligible AZs are occupied (flavor_azone_occupied)
+            - 31 - Cannot get idle container (container_all_busy)
+            - 41 - General failure while provisioning data (provision_error)
         """
         # Get AZ
         azone = self.cloud_assistant.pick_azone(flavor)
