@@ -11,6 +11,9 @@ import os
 import subprocess
 import shutil
 import random
+import time
+
+REPO_PATH = os.path.split(os.path.realpath(__file__))[0]
 
 LOG = logging.getLogger(__name__)
 logging.basicConfig(level=logging.DEBUG, format='%(levelname)s: %(message)s')
@@ -43,9 +46,11 @@ class ContainerAssistant():
     def __init__(self, config_file):
         # Load and parse user config
         with open(config_file, 'r') as f:
-            config = toml.load(f)
+            _data = toml.load(f)
+            config = _data.get('executor', {})
             LOG.debug(f'{ARGS.config}: {config}')
 
+        dry_run = config.get('dry_run', False)
         container_image = config.get('container_image')
         container_path = config.get('container_path')
         container_pool = config.get('container_pool')
@@ -70,6 +75,7 @@ class ContainerAssistant():
         else:
             LOG.debug(f'Get user config "container_pool": {container_pool}')
 
+        self.dry_run = dry_run
         self.container_image = container_image
         self.container_path = container_path
         self.container_pool = container_pool
@@ -173,7 +179,8 @@ class CloudAssistant():
     def __init__(self, config_file):
         # Load and parse user config
         with open(config_file, 'r') as f:
-            config = toml.load(f)
+            _data = toml.load(f)
+            config = _data.get('executor', {})
             LOG.debug(f'{ARGS.config}: {config}')
 
         enabled_regions = config.get('enabled_regions')
@@ -385,7 +392,8 @@ class ConfigAssistant():
     def __init__(self, config_file):
         # Load and parse user config
         with open(config_file, 'r') as f:
-            config = toml.load(f)
+            _data = toml.load(f)
+            config = _data.get('executor', {})
             LOG.debug(f'{ARGS.config}: {config}')
 
         container_path = config.get('container_path')
@@ -491,14 +499,15 @@ class TestExecutor():
     def __init__(self):
         # Load and parse user config
         with open(ARGS.config, 'r') as f:
-            config = toml.load(f)
+            _data = toml.load(f)
+            config = _data.get('executor', {})
             LOG.debug(f'{ARGS.config}: {config}')
 
         self.container_assistant = ContainerAssistant(ARGS.config)
         self.cloud_assistant = CloudAssistant(ARGS.config)
         self.config_assistant = ConfigAssistant(ARGS.config)
 
-        log_path = config.get('log_path')
+        log_path = config.get('log_path', os.path.join(REPO_PATH, 'logs'))
         if not isinstance(log_path, str):
             LOG.error('Invalid log_path (string) in config file.')
             exit(1)
