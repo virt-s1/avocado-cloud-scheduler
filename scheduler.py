@@ -50,7 +50,7 @@ class TestScheduler():
         self.repopath = '/home/cheshi/mirror/codespace/avocado-cloud-scheduler'
         self.logpath = '/home/cheshi/mirror/containers/avocado_scheduler/logs'
         self.dry_run = True
-        self.max_retries_testcase = 200
+        self.max_retries_testcase = 2
         self.max_retries_resource = 10
 
         # load tasks
@@ -214,7 +214,12 @@ class TestScheduler():
         time_used = round((stop_sec - start_sec), 2)
 
         # - 0  - Test executed and passed (test_passed)
-        # - 11 - Test failed (test_general_error)
+        # - 11 - Test error due to general error (test_general_error)
+        # - 12 - Test error due to container error (test_container_error)
+        # - 13 - Test error due to log delivery error (test_log_delivery_error)
+        # - 14 - Test failed due to general error (test_failure_general)
+        # - 15 - Test failed due to error cases (test_failure_error_cases)
+        # - 16 - Test failed due to failure cases (test_failure_failure_cases)
         # - 21 - General failure while getting AZ (flavor_general_error)
         # - 22 - Flavor is out of stock (flavor_no_stock)
         # - 23 - Possible AZs are not enabled (flavor_azone_disabled)
@@ -222,16 +227,45 @@ class TestScheduler():
         # - 31 - Cannot get idle container (container_all_busy)
         # - 41 - General failure while provisioning data (provision_error)
 
-        # Update the task
-        if return_code > -1:
-            res = self.update_task(
-                flavor,
-                ask_for_retry=True,
-                retry_counter_name='remaining_retries_testcase',
-                status='FINISHED',
-                return_code=return_code,
-                time_stop=time_stop,
-                time_used=time_used)
+        code_to_status = {
+            0: 'test_passed',
+            11: 'test_general_error',
+            12: 'test_container_error',
+            13: 'test_log_delivery_error',
+            14: 'test_failure_general',
+            15: 'test_failure_error_cases',
+            16: 'test_failure_failure_cases',
+            21: 'flavor_general_error',
+            22: 'flavor_no_stock',
+            23: 'flavor_azone_disabled',
+            24: 'flavor_azone_occupied',
+            31: 'container_all_busy',
+            41: 'provision_error'
+        }
+
+        if return_code in (12, 23, 24, 31):
+            # Need to retry for resouces
+            _ask_for_retry=True
+            _retry_counter_name='remaining_retries_resource'
+        elif return_code in (15,):
+            # Need to retry for testcase
+            _ask_for_retry=True
+            _retry_counter_name='remaining_retries_testcase'
+        else:
+            # No need to retry
+            _ask_for_retry=False
+            _retry_counter_name=None
+
+        # Update the task info
+        res = self.update_task(
+            flavor,
+            ask_for_retry=_ask_for_retry,
+            retry_counter_name=_retry_counter_name,
+            status='FINISHED',
+            return_code=return_code,
+            status_code=code_to_status.get(return_code, 'unknown_status'),
+            time_stop=time_stop,
+            time_used=time_used)
 
         LOG.info(f'Task for "{flavor}" is finished.')
 
