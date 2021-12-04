@@ -51,40 +51,19 @@ class TestScheduler():
             config = _data.get('scheduler', {})
             LOG.debug(f'{ARGS.config}: {config}')
 
-        log_path = config.get('log_path', os.path.join(REPO_PATH, 'logs'))
-        if not isinstance(log_path, str):
-            LOG.error('Invalid log_path (string) in config file.')
-            exit(1)
-        else:
-            LOG.debug(f'Get user config "log_path": {log_path}')
+        self.logpath = config.get('log_path', os.path.join(REPO_PATH, 'logs'))
+        self.dry_run = config.get('dry_run', False)
+        self.max_threads = config.get('max_threads', 4)
+        self.max_retries_testcase = config.get('max_retries_testcase', 2)
+        self.max_retries_resource = config.get('max_retries_resource', 10)
 
-        dry_run = config.get('dry_run', False)
-        if not isinstance(dry_run, bool):
-            LOG.error('Invalid dry_run (bool) in config file.')
-            exit(1)
-        else:
-            LOG.debug(f'Get user config "dry_run": {dry_run}')
-
-        max_retries_testcase = config.get('max_retries_testcase', 2)
-        if not isinstance(max_retries_testcase, int):
-            LOG.error('Invalid max_retries_testcase (int) in config file.')
-            exit(1)
-        else:
-            LOG.debug(
-                f'Get user config "max_retries_testcase": {max_retries_testcase}')
-
-        max_retries_resource = config.get('max_retries_resource', 10)
-        if not isinstance(max_retries_resource, int):
-            LOG.error('Invalid max_retries_resource (int) in config file.')
-            exit(1)
-        else:
-            LOG.debug(
-                f'Get user config "max_retries_resource": {max_retries_resource}')
-
-        self.logpath = log_path
-        self.dry_run = dry_run
-        self.max_retries_testcase = max_retries_testcase
-        self.max_retries_resource = max_retries_resource
+        LOG.debug(f'User config: logpath: {self.logpath}')
+        LOG.debug(f'User config: dry_run: {self.dry_run}')
+        LOG.debug(f'User config: max_threads: {self.max_threads}')
+        LOG.debug(
+            f'User config: max_retries_testcase: {self.max_retries_testcase}')
+        LOG.debug(
+            f'User config: max_retries_resource: {self.max_retries_resource}')
 
         # Load tasks
         try:
@@ -101,19 +80,17 @@ class TestScheduler():
             v.setdefault('remaining_retries_resource',
                          self.max_retries_resource)
 
-        LOG.debug(f'Tasks Loaded: {tasks}')
+        LOG.debug(f'Loaded {len(tasks)} task(s): {tasks}')
 
-        self.lock = threading.Lock()
         self.tasks = tasks
-        self.queue = []
-
-        self.max_threads = 4
-        self.threads = []
+        self.lock = threading.Lock()
 
         # Save tasks
         self._save_tasks()
 
         # Create Producer and Consumer
+        self.queue = []
+        self.threads = []
         self.producer = threading.Thread(
             target=self.producer, name='Producer', daemon=True)
         self.consumer = threading.Thread(
