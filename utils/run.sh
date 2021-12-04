@@ -84,33 +84,45 @@ result=$?
 # Analyse result
 if [ $result -ge 125 ] && [ $result -le 127 ]; then
     # 125/126/127 - contianer error
-    return_code=2
-elif [ $result -eq 0 ]; then
-    # 0 - test succeed
-    return_code=0
-elif [ $result -gt 0 ]; then
-    # 1 - test failed, do further analysis
-    echo "Test finished (return_code > 0), do furthur analysis..." >&2
-    results_file=${result_path}/latest/results.json
-    error_num=$(cat $results_file | jq -r '.errors')
-    fail_num=$(cat $results_file | jq -r '.failures')
+    exit 2
+fi
+
+if [ ! -f ${result_path}/latest/results.json ]; then
+    echo "Cannot found results.json" >&2
+    exit 1
+fi
+
+if [ $result -eq 0 ]; then
+    # zero - test succeed
+    code=0
+else
+    # non-zero - test failed, do further analysis
+    echo "Test finished (code=$code), do furthur analysis..." >&2
+
+    error_num=$(cat ${result_path}/latest/results.json | jq -r '.errors')
+    fail_num=$(cat ${result_path}/latest/results.json | jq -r '.failures')
     echo "Statistics from results.json: errors=$error_num; failures=$fail_num;" >&2
 
     if [ -z "$error_num" ] || [ "$fail_num" = "null" ]; then
-        return_code=4 # test failed due to general error
+        code=4 # test failed due to general error
     elif [ -z "$error_num" ] || [ "$error_num" = "null" ]; then
-        return_code=4
+        code=4
     elif [ $error_num -gt 0 ]; then
-        return_code=5 # test failed due to error cases
+        code=5 # test failed due to error cases
     elif [ $fail_num -gt 0 ]; then
-        return_code=6 # test failed due to failure cases
+        code=6 # test failed due to failure cases
     else
-        return_code=4
+        code=4
     fi
 fi
 
 # Teardown
 echo "Teardown..." >&2
+
+if [ ! -f "${result_path}/latest/results.json" ]; then
+    # Skip teardown
+    exit $code
+fi
 
 testinfo_path=${result_path}/latest/testinfo
 mkdir -p ${testinfo_path}
@@ -122,4 +134,4 @@ if [ -d "${log_path}" ]; then
     mv $logdir ${log_path}/ || exit 3
 fi
 
-exit $return_code
+exit $code
