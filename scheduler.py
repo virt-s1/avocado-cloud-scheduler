@@ -209,7 +209,7 @@ class TestScheduler():
 
         self.update_task(flavor, status='RUNNING', time_start=time_start)
         ts = time.strftime('%y%m%d%H%M%S', time.localtime(start_sec))
-        logfile = os.path.join(self.logpath, f'task_{flavor}_{ts}.log')
+        logfile = os.path.join(self.logpath, f'task_{ts}_{flavor}.log')
         cmd = f'nohup {REPO_PATH}/executor.py --flavor {flavor} > {logfile}'
 
         if self.dry_run:
@@ -277,7 +277,8 @@ class TestScheduler():
             return_code=return_code,
             status_code=code_to_status.get(return_code, 'unknown_status'),
             time_stop=time_stop,
-            time_used=time_used)
+            time_used=time_used,
+            test_log=logfile)
 
         LOG.info(f'Task for "{flavor}" is finished.')
 
