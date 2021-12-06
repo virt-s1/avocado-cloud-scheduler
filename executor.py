@@ -412,6 +412,8 @@ class ConfigAssistant():
 
         self.container_path = container_path
 
+        self.pem_file = config.get('pem_file')
+
         self.keypair = config.get('keypair')        # TODO
         self.image_name = config.get('image_name')  # TODO
 
@@ -420,21 +422,20 @@ class ConfigAssistant():
         data_path = os.path.join(self.container_path, container_name, 'data')
         result_path = os.path.join(
             self.container_path, container_name, 'job-results')
+
+        # TODO: enhance this logic
         os.makedirs(data_path, exist_ok=True)
         os.makedirs(result_path, exist_ok=True)
 
         # Deliver configure files
-        # TODO: enhance this logic
         LOG.debug(f'Copying default data into {data_path}')
-        shutil.copy(os.path.join(TEMPLATE_PATH, 'test_alibaba.yaml'),
-                    os.path.join(data_path, 'test_alibaba.yaml'))
-        shutil.copy(os.path.join(TEMPLATE_PATH, 'alibaba_common.yaml'),
-                    os.path.join(data_path, 'alibaba_common.yaml'))
-        shutil.copy(os.path.join(TEMPLATE_PATH, 'alibaba_testcases.yaml'),
-                    os.path.join(data_path, 'alibaba_testcases.yaml'))
-        shutil.copy(os.path.join(TEMPLATE_PATH, 'alibaba_flavors.yaml'),
-                    os.path.join(data_path, 'alibaba_flavors.yaml'))
-        shutil.copy(self.pem_file, os.path.join(data_path, 'alibaba.pem'))
+        cmd = f'cp {TEMPLATE_PATH}/*.yaml {data_path}/; \
+            rm -f {data_path}/*.pem; cp self.pem_file {data_path}/'
+
+        res = subprocess.run(cmd, shell=True)
+        if res.returncode > 0:
+            LOG.error('Failed to deliver configure files.')
+            return 1
 
     def _post_action(self, container_name):
         pass

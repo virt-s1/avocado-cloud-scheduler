@@ -14,5 +14,5 @@ enabled_regions = ["cn-beijing", "cn-shanghai", "cn-shenzhen", "cn-qingdao", "cn
 log_path = "/home/cheshi/mirror/containers/avocado_scheduler/logs"
 
 image_name = "redhat_8_5_x64_20G_alibase_20211117_copied.qcow2"
-pem_file="/home/cheshi/.pem/cheshi-docker.pem"
 keypair = 'cheshi-docker'
+pem_file = "/home/cheshi/.pem/cheshi-docker.pem"
