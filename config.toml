@@ -3,7 +3,7 @@ dry_run = false
 log_path = "/home/cheshi/mirror/containers/avocado_scheduler/logs"
 max_retries_resource = 10
 max_retries_testcase = 2
-max_threads = 3
+max_threads = 4
 
 [executor]
 container_image = "avocado-cloud:latest"
@@ -14,4 +14,5 @@ enabled_regions = ["cn-beijing", "cn-shanghai", "cn-shenzhen", "cn-qingdao", "cn
 log_path = "/home/cheshi/mirror/containers/avocado_scheduler/logs"
 
 image_name = "redhat_8_5_x64_20G_alibase_20211117_copied.qcow2"
+pem_file="/home/cheshi/.pem/cheshi-docker.pem"
 keypair = 'cheshi-docker'
