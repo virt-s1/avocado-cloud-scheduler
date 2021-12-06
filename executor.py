@@ -476,8 +476,9 @@ class ConfigAssistant():
         exec = os.path.join(UTILS_PATH, 'provision_common_data.sh')
         file = os.path.join(data_path, 'alibaba_common.yaml')
         access_key_id, access_key_secret = self._get_alibaba_credentials()
-        cmd = f'''{exec} -f {file} -i {access_key_id} -s {access_key_secret} \
--k {self.keypair} -z {azone} -m {self.image_name} -l {container_name}'''
+        cmd = f'{exec} -f {file} -i {access_key_id} -s {access_key_secret} \
+            -k {self.keypair} -z {azone} -m {self.image_name} \
+            -l {container_name}'
 
         LOG.debug(f'Update "{file}" by command "{cmd}".')
         res = subprocess.run(cmd, shell=True)
@@ -525,7 +526,7 @@ class TestExecutor():
 
         self.log_path = log_path
 
-    def run(self, flavor):
+    def _run(self, flavor):
         """Run a single avocado-cloud testing.
 
         Input:
@@ -546,30 +547,75 @@ class TestExecutor():
             - 41 - General failure while provisioning data (provision_error)
         """
         # Get AZ
-        azone = self.cloud_assistant.pick_azone(flavor)
+        try:
+            azone = self.cloud_assistant.pick_azone(flavor)
+        except Exception as ex:
+            LOG.error(f'Failed to get AZ: {ex}')
+            return 21
+
         if isinstance(azone, int):
             return azone + 20
 
         # Get container
-        container = self.container_assistant.pick_container()
+        try:
+            container = self.container_assistant.pick_container()
+        except Exception as ex:
+            LOG.error(f'Failed to get container: {ex}')
+            return 31
+
         if not container:
             return 31
 
         # Provision data
-        res = self.config_assistant.provision_data(
-            container_name=container,
-            flavor=flavor,
-            azone=azone)
+        try:
+            res = self.config_assistant.provision_data(
+                container_name=container,
+                flavor=flavor,
+                azone=azone)
+        except Exception as ex:
+            LOG.error(f'Failed to provision data: {ex}')
+            return 41
+
         if res > 0:
             return res + 40
 
         # Execute the test and collect log
-        res = self.container_assistant.run_container(
-            container_name=container,
-            flavor=flavor,
-            log_path=self.log_path)
+        try:
+            res = self.container_assistant.run_container(
+                container_name=container,
+                flavor=flavor,
+                log_path=self.log_path)
+        except Exception as ex:
+            LOG.error(f'Failed to execute test: {ex}')
+            return 11
+
         if res > 0:
             return res + 10
+
+        return 0
+
+    def run(self, flavor):
+
+        code_to_status = {
+            0: 'test_passed',
+            11: 'test_general_error',
+            12: 'test_container_error',
+            13: 'test_log_delivery_error',
+            14: 'test_failed_general',
+            15: 'test_failed_error_cases',
+            16: 'test_failed_failure_cases',
+            21: 'flavor_general_error',
+            22: 'flavor_no_stock',
+            23: 'flavor_azone_disabled',
+            24: 'flavor_azone_occupied',
+            31: 'container_all_busy',
+            41: 'provision_error'
+        }
+
+        return_code = self._run(flavor)
+        status = code_to_status.get(return_code, 'unknown_status')
+
+        LOG.info(f'Exit Code: {return_code} ({status})')
 
         return 0
 
@@ -579,7 +625,4 @@ if __name__ == '__main__':
     executor = TestExecutor()
     code = executor.run(ARGS.flavor)
 
-    LOG.info(f'Exit Code: {code}')
     exit(code)
-
-exit(0)

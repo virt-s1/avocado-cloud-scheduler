@@ -255,6 +255,8 @@ class TestScheduler():
             41: 'provision_error'
         }
 
+        status_code = code_to_status.get(return_code, 'unknown_status')
+
         if return_code in (12, 23, 24, 31):
             # Need to retry for resouces
             _ask_for_retry = True
@@ -275,12 +277,12 @@ class TestScheduler():
             retry_counter_name=_retry_counter_name,
             status='FINISHED',
             return_code=return_code,
-            status_code=code_to_status.get(return_code, 'unknown_status'),
+            status_code=status_code,
             time_stop=time_stop,
             time_used=time_used,
             test_log=logfile)
 
-        LOG.info(f'Task for "{flavor}" is finished.')
+        LOG.info(f'Task for "{flavor}" is finished (Status: {status_code}).')
 
         return return_code
 
