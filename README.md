@@ -32,21 +32,33 @@ vi config.toml
 
 ### 3.1. Enable a region
 
+Prepare resources:
+
 ```bash
-# Prepare image (example)
+# Deliver image (example)
 ./utils/copy_image.sh -r cn-hangzhou -n redhat_8_5_x64_20G_alibase_20211117.qcow2 \
     -R cn-hangzhou -N redhat_8_5_x64_20G_alibase_20211117_copied.qcow2
 ./utils/copy_image.sh -r cn-hangzhou -n redhat_8_5_x64_20G_alibase_20211117_copied.qcow2 -R cn-beijing
 
-# Prepare VSwitches (example)
+# Create VSwitches (example)
 ./utils/create_vsw_for_region.sh -r cn-beijing
 
-# Add to the config.toml
-vi config.toml
+# Create sshkey
+(...Doing on the website...)
 ```
+
+Then update the configuration in `config.toml`.
+
 
 ## 4. Manual test
 ```bash
 cd avocado-cloud-scheduler
 ./executor.py --flavor esx.i2.xlarge
+```
+
+## 5. Auto test
+
+```bash
+./utils/make_tasklist.sh -f "ecs.hfg5.xlarge ecs.i2.xlarge ecs.g6.large"
+./schedule.py
 ```
