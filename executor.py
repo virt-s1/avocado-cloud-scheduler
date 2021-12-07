@@ -202,7 +202,14 @@ class CloudAssistant():
         if not os.path.exists(distribution_file):
             exec = os.path.join(UTILS_PATH, 'query_flavors.sh')
             cmd = f'{exec} -o {distribution_file}'
-            subprocess.run(cmd, shell=True)
+            res = subprocess.run(cmd, shell=True)
+
+            if res.returncode == 2:
+                LOG.debug('Another instance of query_flavors.sh is running, wait 60s for it.')
+                time.sleep(60)
+            elif res.returncode != 0:
+                LOG.error(f'Failed to generate {distribution_file}')
+                exit(1)
 
         with open(distribution_file, 'r') as f:
             _list = f.readlines()

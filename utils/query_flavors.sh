@@ -47,6 +47,16 @@ done
 : ${output:=/tmp/aliyun_flavor_distribution.txt}
 
 # Main
+lckfile=/tmp/aliyun_flavor_distribution.lck
+if [ -f $lckfile ]; then
+    pid=$(cat $lckfile)
+    if (ps -q $pid &>/dev/null); then
+        echo "Another instance of this script is running as PID $pid, exit!"
+        exit 2
+    fi
+fi
+echo $$ > $lckfile
+
 tmpfile=/tmp/aliyun_flavor_distribution.tmp
 : >$tmpfile
 
@@ -89,6 +99,7 @@ done
 
 echo -e "\nSaving resource matrix to $output ..." >&2
 mv $tmpfile $output
+rm $lckfile
 
 echo -e "\nDone!" >&2
 
