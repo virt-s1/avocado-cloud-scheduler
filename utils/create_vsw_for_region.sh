@@ -52,8 +52,10 @@ function get_available_cidr() {
     vsw_existing_cidrs=$@
     candidates="0 16 32 48 64 80 96 112 128 144 160 176 192 208 224 240"
 
+    netbits=${vpc_cidr##*/}
     for n in $candidates; do
-        cidr=${vpc_cidr/%".0.0/16"/."$n.0/20"}
+        cidr=${vpc_cidr/%".0.0/$netbits"/".$n.0/20"}
+        [ "$cidr" = "$vpc_cidr" ] && return 1
         if (echo $vsw_existing_cidrs | grep -q -w $cidr); then
             # Go to next one
             continue
@@ -88,10 +90,11 @@ vpc_cidr=$(echo ${vpc_block} | jq -r '.Vpcs.Vpc[].CidrBlock')
 [ -z "${vpc_cidr}" ] && echo "Failed to get VPC CIDR Block." >&2 && exit 1
 
 # Assert: VPC CIDR in format "x.x.0.0/16"
-if [[ "${vpc_cidr}" =~ ".0.0/16" ]]; then
-    echo "INFO: The vpc_cidr \"${vpc_cidr}\" can be handled." >&2
+netbits=${vpc_cidr##*/}
+if [ $netbits -le 16 ]; then
+    echo "INFO: The vpc_cidr \"${vpc_cidr}\" can be handled (netbits<=16)." >&2
 else
-    echo "ERROR: The vpc_cidr \"${vpc_cidr}\" cannot be handled." >&2
+    echo "ERROR: The vpc_cidr \"${vpc_cidr}\" cannot be handled (netbits>16)." >&2
     exit 1
 fi
 
