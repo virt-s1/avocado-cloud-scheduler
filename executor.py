@@ -617,7 +617,7 @@ class TestExecutor():
 
         LOG.info(f'Exit Code: {return_code} ({status})')
 
-        return 0
+        return return_code
 
 
 if __name__ == '__main__':
