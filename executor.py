@@ -56,7 +56,7 @@ class ContainerAssistant():
         container_pool = config.get('container_pool')
 
         # Verify container image
-        cmd = f'podman inspect --type container {container_image} &>/dev/null'
+        cmd = f'podman inspect {container_image} &>/dev/null'
         res = subprocess.run(cmd, shell=True)
         if res.returncode == 0:
             LOG.debug(f'Container image "{container_image}" is valid.')
@@ -90,7 +90,7 @@ class ContainerAssistant():
         """
         status = {}
         for name in self.container_pool:
-            cmd = f'podman inspect {name} &>/dev/null'
+            cmd = f'podman inspect --type container {name} &>/dev/null'
             res = subprocess.run(cmd, shell=True)
             if res.returncode == 0:
                 status[name] = 'unavailable'
