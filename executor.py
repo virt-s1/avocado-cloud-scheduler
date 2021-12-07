@@ -430,7 +430,7 @@ class ConfigAssistant():
         # Deliver configure files
         LOG.debug(f'Copying default data into {data_path}')
         cmd = f'cp {TEMPLATE_PATH}/*.yaml {data_path}/; \
-            rm -f {data_path}/*.pem; cp self.pem_file {data_path}/'
+            rm -f {data_path}/*.pem; cp {self.pem_file} {data_path}/'
 
         res = subprocess.run(cmd, shell=True)
         if res.returncode > 0:

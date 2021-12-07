@@ -209,8 +209,8 @@ class TestScheduler():
 
         self.update_task(flavor, status='RUNNING', time_start=time_start)
         ts = time.strftime('%y%m%d%H%M%S', time.localtime(start_sec))
-        logfile = os.path.join(self.logpath, f'task_{ts}_{flavor}.log')
-        cmd = f'nohup {REPO_PATH}/executor.py --flavor {flavor} > {logfile}'
+        logname = f'task_{ts}_{flavor}.log'
+        cmd = f'nohup {REPO_PATH}/executor.py --flavor {flavor} > {self.logpath}/{logname}'
 
         if self.dry_run:
             time.sleep(random.random() * 3 + 2)
@@ -280,7 +280,7 @@ class TestScheduler():
             status_code=status_code,
             time_stop=time_stop,
             time_used=time_used,
-            test_log=logfile)
+            test_log=logname)
 
         LOG.info(f'Task for "{flavor}" is finished (Status: {status_code}).')
 
