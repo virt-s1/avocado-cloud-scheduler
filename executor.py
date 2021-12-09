@@ -457,8 +457,7 @@ class ConfigAssistant():
             access_key_secret = cli_config.get(
                 'profiles')[0].get('access_key_secret')
         except Exception as ex:
-            LOG.warning(
-                'Unable to get Alibaba credentials from CLI config.')
+            LOG.warning('Unable to get Alibaba credentials from CLI config.')
             access_key_id = 'Null'
             access_key_secret = 'Null'
 
@@ -490,7 +489,7 @@ class ConfigAssistant():
         LOG.debug(f'Update "{file}" by command "{cmd}".')
         res = subprocess.run(cmd, shell=True)
         if res.returncode > 0:
-            LOG.error('Failed to update "{file}".')
+            LOG.error(f'Failed to update "{file}".')
             return 1
 
         # Provision flavor data
@@ -501,7 +500,7 @@ class ConfigAssistant():
         LOG.debug(f'Update "{file}" by command "{cmd}".')
         res = subprocess.run(cmd, shell=True)
         if res.returncode > 0:
-            LOG.error('Failed to update "{file}".')
+            LOG.error(f'Failed to update "{file}".')
             return 1
 
         # Post-action
