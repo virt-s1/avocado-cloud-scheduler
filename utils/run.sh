@@ -64,7 +64,7 @@ done
 [ -z "${container_image}" ] && show_usage && exit 1
 
 # Setup
-echo "Setup..." >&2
+echo "INFO: Setup..." >&2
 data_path=${container_path}/${container_name}/data
 result_path=${container_path}/${container_name}/job-results
 
@@ -74,34 +74,46 @@ rm -rf ${result_path}/latest
 chcon -R -u system_u -t svirt_sandbox_file_t ${container_path}
 
 # Test
-echo "Test..." >&2
+echo "INFO: Test..." >&2
 podman run --name ${container_name} --rm -it \
     -v ${data_path}:/data:rw \
     -v ${result_path}:/root/avocado/job-results:rw \
     ${container_image} /bin/bash ./container/bin/test_alibaba.sh
 result=$?
+echo "DEBUG: return code from podman triggering: $result"
 
-# Analyse result
-if [ $result -ge 125 ] && [ $result -le 127 ]; then
-    # 125/126/127 - contianer error
-    exit 2
+# Get log directory
+logdir_by_link=$(file ${result_path}/latest | sed "s#^.*link to #${result_path}/#")
+if [ -d "${logdir_by_link}" ]; then
+    echo "DEBUG: Use logdir_by_link (${logdir_by_link})" >&2
+    logdir="${logdir_by_link}"
+else
+    echo "WARNING: it seems that avocado-cloud test was not triggered." >&2
+    logdir=""
 fi
 
-if [ ! -f ${result_path}/latest/results.json ]; then
-    echo "Cannot found results.json" >&2
-    exit 1
-fi
+echo "INFO: Log directory: ${logdir:-'Not Found'}" >&2
 
 if [ $result -eq 0 ]; then
-    # zero - test succeed
+    # 0 - test succeed
+    echo "INFO: Test finished (return=$result), test succeed." >&2
     code=0
+elif [ $result -eq 125 ]; then
+    # 125 - contianer error
+    echo "INFO: Test finished (return=$result), contianer error." >&2
+    code=2
 else
-    # non-zero - test failed, do further analysis
-    echo "Test finished (code=$code), do furthur analysis..." >&2
+    # others - do further analysis
+    echo "INFO: Test finished (return=$result), do furthur analysis..." >&2
 
-    error_num=$(cat ${result_path}/latest/results.json | jq -r '.errors')
-    fail_num=$(cat ${result_path}/latest/results.json | jq -r '.failures')
-    echo "Statistics from results.json: errors=$error_num; failures=$fail_num;" >&2
+    results_json=$logdir/results.json
+    if [ ! -f ${results_json} ]; then
+        echo "WARNING: Cannot found ${results_json}." >&2
+    fi
+
+    error_num=$(cat ${results_json} | jq -r '.errors')
+    fail_num=$(cat ${results_json} | jq -r '.failures')
+    echo "INFO: Statistics from results.json: errors=$error_num; failures=$fail_num;" >&2
 
     if [ -z "$error_num" ] || [ "$fail_num" = "null" ]; then
         code=4 # test failed due to general error
@@ -116,22 +128,24 @@ else
     fi
 fi
 
-# Teardown
-echo "Teardown..." >&2
+echo "INFO: Return code: $code" >&2
 
-if [ ! -f "${result_path}/latest/results.json" ]; then
-    # Skip teardown
-    exit $code
+# Teardown
+echo "INFO: Teardown..." >&2
+
+if [ -d "$logdir" ]; then
+    echo "INFO: Moving *.yaml to $logdir/testinfo ..." >&2
+    mkdir -p $logdir/testinfo
+    cp ${data_path}/*.yaml $logdir/testinfo/
+else
+    echo "DEBUG: Skip moving *.yaml to $logdir/testinfo ..." >&2
 fi
 
-testinfo_path=${result_path}/latest/testinfo
-mkdir -p ${testinfo_path}
-cp ${data_path}/*.yaml ${testinfo_path}/
-
-if [ -d "${log_path}" ]; then
-    logdir=$(ls -td ${result_path}/job-* | head -n 1)
-    echo "Moving $logdir to ${log_path} ..." >&2
+if [ -d "$logdir" ] && [ -d "${log_path}" ]; then
+    echo "INFO: Moving $logdir to ${log_path} ..." >&2
     mv $logdir ${log_path}/ || exit 3
+else
+    echo "DEBUG: Skip moving $logdir to ${log_path} ..." >&2
 fi
 
 exit $code
