@@ -85,7 +85,7 @@ class ContainerAssistant():
 
         Input:
             N/A
-        Output:
+        Return:
             - dict of the container status
         """
         status = {}
@@ -106,7 +106,7 @@ class ContainerAssistant():
 
         Input:
             - containers - List of containers
-        Output:
+        Return:
             - container (string) or None if azones is empty.
         """
         if not containers:
@@ -120,13 +120,55 @@ class ContainerAssistant():
             f'Randomly picked container "{container}" from "{containers}".')
         return container
 
-    def pick_container(self):
-        """Pick an container for the test.
+    def _lock_container(self, container, lock_sec=120):
+        """Lock the container for specified seconds.
 
         Input:
-            N/A
-        Output:
-            - container (string) or None if no available ones
+            - container - Name of the container
+            - lock_sec  - Seconds for keeping container locked
+        Return:
+            - 0 if succeed or,
+            - 1 for errors
+        """
+        cmd = f'podman run --name {container} --rm -itd \
+            {self.container_image} /usr/bin/sleep {lock_sec} \
+            >/dev/null'
+        LOG.debug(f'Lock container "{container}" by command: {cmd}')
+        res = subprocess.run(cmd, shell=True)
+
+        if res.returncode > 0:
+            return 1
+
+        return 0
+
+    def _unlock_container(self, container):
+        """Unlock the container.
+
+        Input:
+            - container - Name of the container
+        Return:
+            - 0 if succeed or,
+            - 1 for errors
+        """
+        cmd = f'podman kill {container} >/dev/null'
+        LOG.debug(f'Unlock container "{container}" by command: {cmd}')
+        res = subprocess.run(cmd, shell=True)
+
+        if res.returncode > 0:
+            return 1
+
+        return 0
+
+    def pick_container(self, lock_sec=120):
+        """Pick a container for the test.
+
+        Input:
+            - lock_sec - Seconds for keeping container locked
+        Return:
+            - (0, container) - succeed
+            - (1, None)      - general error
+            - (2, None)      - no idle container
+            - (3, None)      - failed to lock container
         """
         status = self.get_container_status()
         available_containers = [
@@ -134,14 +176,21 @@ class ContainerAssistant():
 
         if not available_containers:
             LOG.debug('No idle container in the pool.')
-            return None
+            return (2, None)
 
         # Randomly pick a container
         container = self.random_pick_container(available_containers)
         LOG.info(
             f'Picked container "{container}" from "{available_containers}".')
 
-        return container
+        # Lock the container if asked
+        if lock_sec > 0:
+            res = self._lock_container(container, lock_sec)
+            if res > 0:
+                LOG.error(f'Failed to lock container {container}.')
+                return (3, None)
+
+        return (0, container)
 
     def run_container(self, container_name, flavor='flavor', log_path=None):
         """Trigger a container to run (perform the provisioned test).
@@ -150,10 +199,14 @@ class ContainerAssistant():
             - container_name - which container to run
             - flavor         - Instance Type
             - log_path       - where to put the logs
-        Output:
+        Return:
             - 0 for a passed test, or
             - !0 for a failed one
         """
+        # Unlock the container
+        self._unlock_container(container_name)
+
+        # Run tests
         exec = os.path.join(UTILS_PATH, 'run.sh')
         cmd = f'{exec} -p {self.container_path} -n {container_name} \
             -m {self.container_image}'
@@ -164,7 +217,7 @@ class ContainerAssistant():
                  f'"{container_name}"...')
 
         if self.dry_run:
-            LOG.info('[DRYRUN] generate return code randomly.')
+            LOG.info('!!!DRYRUN!!! Generate return code randomly.')
             time.sleep(random.random() * 3 + 2)
             return_code = random.randint(0, 6)
         else:
@@ -235,7 +288,7 @@ class CloudAssistant():
 
         Input:
             - flavor - Instance Type
-        Output:
+        Return:
             - A list of AZs or []
         """
         possible_azones = self.location_info.get(flavor, [])
@@ -250,7 +303,7 @@ class CloudAssistant():
 
         Input:
             - azones - List of AZs
-        Output:
+        Return:
             - A list of eligible AZs or []
         """
         if not azones:
@@ -281,7 +334,7 @@ class CloudAssistant():
 
         Input:
             - azones - List of AZs
-        Output:
+        Return:
             - AZ (string) or '' if azones is empty.
         """
         if not azones:
@@ -299,7 +352,7 @@ class CloudAssistant():
 
         Input:
             - flavor - Instance Type
-        Output:
+        Return:
             - AZ (string) if succeed
             - 2 if flavor is out of stock
             - 3 if AZs are not enabled
@@ -472,7 +525,7 @@ class ConfigAssistant():
             - container_name    - Container Name
             - flavor            - Instance Type
             - azone             - AZ
-        Output:
+        Return:
             - 0 if succeed, or
             - 1 if failed
         """
@@ -539,7 +592,7 @@ class TestExecutor():
 
         Input:
             - flavor - Instance Type
-        Output:
+        Return:
             - 0  - Test executed and passed (test_passed)
             - 11 - Test error due to general error (test_general_error)
             - 12 - Test error due to container error (test_container_error)
@@ -551,7 +604,9 @@ class TestExecutor():
             - 22 - Flavor is out of stock (flavor_no_stock)
             - 23 - Possible AZs are not enabled (flavor_azone_disabled)
             - 24 - Eligible AZs are occupied (flavor_azone_occupied)
-            - 31 - Cannot get idle container (container_all_busy)
+            - 31 - General failure while getting container (container_error)
+            - 32 - Cannot get idle container (container_all_busy)
+            - 33 - Lock or Unlock container failed (container_lock_error)
             - 41 - General failure while provisioning data (provision_error)
         """
         # Get AZ
@@ -566,13 +621,13 @@ class TestExecutor():
 
         # Get container
         try:
-            container = self.container_assistant.pick_container()
+            res, container = self.container_assistant.pick_container()
         except Exception as ex:
             LOG.error(f'Failed to get container: {ex}')
             return 31
 
-        if not container:
-            return 31
+        if res > 0:
+            return res + 30
 
         # Provision data
         try:
@@ -616,7 +671,9 @@ class TestExecutor():
             22: 'flavor_no_stock',
             23: 'flavor_azone_disabled',
             24: 'flavor_azone_occupied',
-            31: 'container_all_busy',
+            31: 'container_error',
+            32: 'container_all_busy',
+            33: 'container_lock_error',
             41: 'provision_error'
         }
 

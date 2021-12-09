@@ -210,12 +210,13 @@ class TestScheduler():
         self.update_task(flavor, status='RUNNING', time_start=time_start)
         ts = time.strftime('%y%m%d%H%M%S', time.localtime(start_sec))
         logname = f'task_{ts}_{flavor}.log'
-        cmd = f'nohup {REPO_PATH}/executor.py --flavor {flavor} > {self.logpath}/{logname}'
+        cmd = f'nohup {REPO_PATH}/executor.py --flavor {flavor} \
+            > {self.logpath}/{logname}'
 
         if self.dry_run:
             time.sleep(random.random() * 3 + 2)
             return_code = random.choice(
-                [0, 11, 12, 13, 14, 15, 16, 21, 22, 23, 24, 31, 41])
+                [0, 11, 12, 13, 14, 15, 16, 21, 22, 23, 24, 31, 32, 33, 41])
         else:
             res = subprocess.run(cmd, shell=True)
             return_code = res.returncode
@@ -236,7 +237,9 @@ class TestScheduler():
         # - 22 - Flavor is out of stock (flavor_no_stock)
         # - 23 - Possible AZs are not enabled (flavor_azone_disabled)
         # - 24 - Eligible AZs are occupied (flavor_azone_occupied)
-        # - 31 - Cannot get idle container (container_all_busy)
+        # - 31 - General failure while getting container (container_error)
+        # - 32 - Cannot get idle container (container_all_busy)
+        # - 33 - Lock or Unlock container failed (container_lock_error)
         # - 41 - General failure while provisioning data (provision_error)
 
         code_to_status = {
@@ -251,13 +254,15 @@ class TestScheduler():
             22: 'flavor_no_stock',
             23: 'flavor_azone_disabled',
             24: 'flavor_azone_occupied',
-            31: 'container_all_busy',
+            31: 'container_error',
+            32: 'container_all_busy',
+            33: 'container_lock_error',
             41: 'provision_error'
         }
 
         status_code = code_to_status.get(return_code, 'unknown_status')
 
-        if return_code in (12, 23, 24, 31):
+        if return_code in (12, 23, 24, 31, 32, 33):
             # Need to retry for resouces
             _ask_for_retry = True
             _retry_counter_name = 'remaining_retries_resource'
