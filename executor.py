@@ -50,35 +50,35 @@ class ContainerAssistant():
             config = _data.get('executor', {})
             LOG.debug(f'{ARGS.config}: {config}')
 
-        dry_run = config.get('dry_run', False)
-        container_image = config.get('container_image')
-        container_path = config.get('container_path')
-        container_pool = config.get('container_pool')
+        self.dry_run = config.get('dry_run', False)
+        self.container_image = config.get('container_image')
+        self.container_path = config.get('container_path')
+        container_pool_name = config.get('container_pool_name', 'ac')
+        container_pool_size = config.get('container_pool_size', 32)
+
+        LOG.debug(f'Got dry_run: {self.dry_run}')
+        LOG.debug(f'Got container_image: {self.container_image}')
+        LOG.debug(f'Got container_path: {self.container_path}')
+        LOG.debug(f'Got container_pool_name: {container_pool_name}')
+        LOG.debug(f'Got container_pool_size: {container_pool_size}')
 
         # Verify container image
-        cmd = f'podman inspect {container_image} &>/dev/null'
+        cmd = f'podman inspect {self.container_image} &>/dev/null'
         res = subprocess.run(cmd, shell=True)
         if res.returncode == 0:
-            LOG.debug(f'Container image "{container_image}" is valid.')
+            LOG.debug(f'Container image "{self.container_image}" is valid.')
         else:
-            LOG.error(f'Container image "{container_image}" is invalid.')
+            LOG.error(f'Container image "{self.container_image}" is invalid.')
             exit(1)
+
+        # Create container pool
+        self.container_pool = [
+            f'{container_pool_name}{x:0{len(str(container_pool_size-1))}d}'
+            for x in range(container_pool_size)]
+        LOG.debug(f'Container Pool: {self.container_pool}')
 
         # Create container path if needed
-        os.makedirs(container_path, exist_ok=True)
-        LOG.debug(f'Get user config "container_path": {container_path}')
-
-        # Verify container pool
-        if not isinstance(container_pool, list):
-            LOG.error('The container_pool (should be list) is invalid.')
-            exit(1)
-        else:
-            LOG.debug(f'Get user config "container_pool": {container_pool}')
-
-        self.dry_run = dry_run
-        self.container_image = container_image
-        self.container_path = container_path
-        self.container_pool = container_pool
+        os.makedirs(self.container_path, exist_ok=True)
 
     def get_container_status(self):
         """Get the status of containers in the pool.
@@ -164,6 +164,7 @@ class ContainerAssistant():
                  f'"{container_name}"...')
 
         if self.dry_run:
+            LOG.info('[DRYRUN] generate return code randomly.')
             time.sleep(random.random() * 3 + 2)
             return_code = random.randint(0, 6)
         else:
@@ -205,7 +206,8 @@ class CloudAssistant():
             res = subprocess.run(cmd, shell=True)
 
             if res.returncode == 2:
-                LOG.debug('Another instance of query_flavors.sh is running, wait 60s for it.')
+                LOG.debug(
+                    'Another instance of query_flavors.sh is running, wait 60s for it.')
                 time.sleep(60)
             elif res.returncode != 0:
                 LOG.error(f'Failed to generate {distribution_file}')

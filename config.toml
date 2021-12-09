@@ -2,15 +2,27 @@
 dry_run = false
 log_path = "/home/cheshi/mirror/containers/avocado_scheduler/logs"
 max_retries_resource = 10
-max_retries_testcase = 2
-max_threads = 4
+max_retries_testcase = 3
+max_threads = 8
 
 [executor]
 container_image = "avocado-cloud:latest"
 container_path = "/home/cheshi/mirror/containers/avocado_scheduler"
-container_pool = ["ac1", "ac2", "ac3", "ac4"]
+container_pool_name = "ac"
+container_pool_size = 32
 dry_run = false
-enabled_regions = ["cn-beijing", "cn-shanghai", "cn-shenzhen", "cn-qingdao", "cn-hongkong", "us-west-1"]
+enabled_regions = [
+  "cn-beijing",
+  "cn-hangzhou",
+  "cn-zhangjiakou",
+  "cn-shanghai",
+  "cn-shenzhen",
+  "cn-qingdao",
+  "cn-hongkong",
+  "us-west-1",
+  "ap-southeast-1",
+  "eu-central-1",
+]
 log_path = "/home/cheshi/mirror/containers/avocado_scheduler/logs"
 
 image_name = "redhat_8_5_x64_20G_alibase_20211117_copied.qcow2"
