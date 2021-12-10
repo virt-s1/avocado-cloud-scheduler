@@ -3,10 +3,11 @@
 Show task status of avocado-cloud scheduler by reading tasklist.
 """
 
+from tabulate import tabulate
 import argparse
 import logging
 import toml
-from tabulate import tabulate
+import time
 
 
 LOG = logging.getLogger(__name__)
@@ -70,11 +71,23 @@ if __name__ == '__main__':
         task['RetryStatusCode'] = last_v.get('status_code', 'None')
         task['LogFile'] = v.get('test_log') or last_v.get('test_log', 'None')
 
+        if v.get('time_used'):
+            # Status: FINISHED
+            task['TimeUsed'] = v.get('time_used')
+        elif v.get('time_start'):
+            # Status: RUNNING
+            _start_time = time.mktime(
+                time.strptime(v.get('time_start'), '%Y-%m-%d %H:%M:%S'))
+            task['TimeUsed'] = f'{(time.time() - _start_time):.2f}'
+        else:
+            # Status: WAITING
+            task['TimeUsed'] = last_v.get('time_used', 'None')
+
         status.append(task)
 
     # Show status in table
-    table = tabulate(status, headers='keys',
-                     tablefmt='simple', showindex='always')
+    table = tabulate(status, headers='keys', tablefmt='simple',
+                     showindex='always', disable_numparse=True)
     print(table)
 
     exit(0)
