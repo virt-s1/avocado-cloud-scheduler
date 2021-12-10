@@ -210,8 +210,8 @@ class TestScheduler():
         self.update_task(flavor, status='RUNNING', time_start=time_start)
         ts = time.strftime('%y%m%d%H%M%S', time.localtime(start_sec))
         logname = f'task_{ts}_{flavor}.log'
-        cmd = f'nohup {REPO_PATH}/executor.py --flavor {flavor} \
-            > {self.logpath}/{logname}'
+        cmd = f'nohup {REPO_PATH}/executor.py --config {ARGS.config} \
+            --flavor {flavor} > {self.logpath}/{logname}'
 
         if self.dry_run:
             time.sleep(random.random() * 3 + 2)
