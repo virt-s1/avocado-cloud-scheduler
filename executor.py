@@ -502,6 +502,7 @@ class ConfigAssistant():
             exit(1)
 
         self.provider = _test.get('provider')
+        self.testcases = _test.get('testcases')
 
     def _pre_action(self, container_name):
         # Create directories
@@ -598,7 +599,20 @@ class ConfigAssistant():
 
         # Provision testcases data
         file = os.path.join(data_path, f'{self.provider}_testcases.yaml')
-        pass
+
+        lines = ['cases:\n']
+        for _case in self.testcases.split('\n'):
+            case = _case.strip()
+
+            if not case:
+                continue
+            if case.startswith('#'):
+                continue
+
+            lines.append(f'  {case.strip()}\n')
+
+        with open(file, 'w') as f:
+            f.writelines(lines)
 
         # Post-action
         self._post_action(container_name)
