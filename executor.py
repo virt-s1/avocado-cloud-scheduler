@@ -474,10 +474,32 @@ class ConfigAssistant():
 
         self.container_path = container_path
 
-        self.pem_file = config.get('pem_file')
+        # Parse test configure
+        _test = config.get('test', {})
 
-        self.keypair = config.get('keypair')        # TODO
-        self.image_name = config.get('image_name')  # TODO
+        self.identity_file = _test.get('identity_file')
+        if self.identity_file is None:
+            LOG.error('The ssh identity file (test.identity_file) '
+                      'is not specified.')
+            exit(1)
+        if not self.identity_file or not os.path.isfile(self.identity_file):
+            LOG.error(f'The ssh identity file ({self.identity_file}) '
+                      'cannot be found.')
+            exit(1)
+        if not self.identity_file.endswith('.pem'):
+            LOG.error(f'The ssh identity file ({self.identity_file}) '
+                      'must be suffixed with ".pem".')
+            exit(1)
+
+        self.keypair = _test.get('keypair')
+        if self.keypair is None:
+            LOG.error('The keypair (test.keypair) is not specified.')
+            exit(1)
+
+        self.image_name = _test.get('image_name')
+        if self.image_name is None:
+            LOG.error('The image name (test.image_name) is not specified.')
+            exit(1)
 
     def _pre_action(self, container_name):
         # Create directories
@@ -492,7 +514,7 @@ class ConfigAssistant():
         # Deliver configure files
         LOG.debug(f'Copying default data into {data_path}')
         cmd = f'cp {TEMPLATE_PATH}/*.yaml {data_path}/; \
-            rm -f {data_path}/*.pem; cp {self.pem_file} {data_path}/'
+            rm -f {data_path}/*.pem; cp {self.identity_file} {data_path}/'
 
         res = subprocess.run(cmd, shell=True)
         if res.returncode > 0:
