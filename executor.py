@@ -504,6 +504,14 @@ class ConfigAssistant():
         self.provider = _test.get('provider')
         self.testcases = _test.get('testcases')
 
+    def _aliyun_cli(self, cmd):
+        LOG.debug(f'CLI Request: {cmd}')
+        p = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE)
+        if p.returncode > 0:
+            raise "Failed to obtain information from Alibaba Cloud CLI."
+
+        return json.loads(p.stdout)
+
     def _pre_action(self, container_name):
         # Create directories
         data_path = os.path.join(self.container_path, container_name, 'data')
@@ -542,6 +550,57 @@ class ConfigAssistant():
             access_key_secret = 'Null'
 
         return (access_key_id, access_key_secret)
+
+    def _write_flavors_config(self, flavor, file):
+        # Get instance family
+        if '-' in flavor:
+            family = flavor.split('-')[0]
+        else:
+            family = '.'.join(flavor.split('.')[:-1])
+
+        # Query information
+        data = self._aliyun_cli(
+            f'aliyun ecs DescribeInstanceTypes --InstanceTypeFamily {family}')
+
+        info = None
+        for x in data.get('InstanceTypes', {}).get('InstanceType', []):
+            if x.get('InstanceTypeId') == flavor:
+                info = x
+
+        if info is None:
+            LOG.error(f'Unable to query the information of flavor "{flavor}".')
+            return 1
+
+        # Analyse SPEC and compile the file
+        lines = ['Flavor: !mux\n\n']
+
+        if info.get('InstanceTypeId'):
+            lines += [
+                '  {InstanceTypeId}:\n',
+                '    name: {InstanceTypeId}\n',
+                '    cpu: {CpuCoreCount}\n',
+                '    memory: {MemorySize}\n',
+                '    nic_count: {EniQuantity}\n'
+            ]
+
+        if info.get('LocalStorageAmount'):
+            lines += [
+                '    disk_count: {LocalStorageAmount}\n',
+                '    disk_size: {LocalStorageCapacity}\n'
+            ]
+
+            if info.get('LocalStorageCategory') == 'local_ssd_pro':
+                lines.append('    disk_type: ssd\n')
+            else:
+                LOG.warning('Unsupported LocalStorageCategory: {}'.format(
+                    info.get('LocalStorageCategory')))
+                lines.append('    disk_type: {LocalStorageCategory}\n')
+
+        lines = [x.format(**info) for x in lines]
+
+        # Write the file
+        with open(file, 'w') as f:
+            f.writelines(lines)
 
     def provision_data(self, container_name, flavor, azone):
         """Provision config for avocado-cloud testing.
@@ -586,16 +645,9 @@ class ConfigAssistant():
             LOG.error(f'Failed to update "{file}".')
             return 1
 
-        # Provision flavor data
+        # Provision flavors data
         file = os.path.join(data_path, f'{self.provider}_flavors.yaml')
-        exec = os.path.join(UTILS_PATH, 'provision_flavor_data.sh')
-        cmd = f'{exec} {flavor} {file}'
-
-        LOG.debug(f'Update "{file}" by command "{cmd}".')
-        res = subprocess.run(cmd, shell=True)
-        if res.returncode > 0:
-            LOG.error(f'Failed to update "{file}".')
-            return 1
+        self._write_flavors_config(flavor, file)
 
         # Provision testcases data
         file = os.path.join(data_path, f'{self.provider}_testcases.yaml')
