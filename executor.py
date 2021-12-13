@@ -501,6 +501,8 @@ class ConfigAssistant():
             LOG.error('The image name (test.image_name) is not specified.')
             exit(1)
 
+        self.provider = _test.get('provider')
+
     def _pre_action(self, container_name):
         # Create directories
         data_path = os.path.join(self.container_path, container_name, 'data')
@@ -552,12 +554,26 @@ class ConfigAssistant():
             - 1 if failed
         """
         # Pre-action
-        self._pre_action(container_name)
+        # self._pre_action(container_name)
+
+        # Preparation
+        data_path = os.path.join(self.container_path, container_name, 'data')
+        os.makedirs(data_path, exist_ok=True)
+
+        # Provision config list
+        file = os.path.join(data_path, f'test_{self.provider}.yaml')
+        lines = [
+            f'test:\n',
+            f'    !include : {self.provider}_flavors.yaml\n'
+            f'    !include : {self.provider}_testcases.yaml\n'
+            f'    !include : {self.provider}_common.yaml\n'
+        ]
+        with open(file, 'w') as f:
+            f.writelines(lines)
 
         # Provision common data
-        data_path = os.path.join(self.container_path, container_name, 'data')
+        file = os.path.join(data_path, f'{self.provider}_common.yaml')
         exec = os.path.join(UTILS_PATH, 'provision_common_data.sh')
-        file = os.path.join(data_path, 'alibaba_common.yaml')
         access_key_id, access_key_secret = self._get_alibaba_credentials()
         cmd = f'{exec} -f {file} -i {access_key_id} -s {access_key_secret} \
             -k {self.keypair} -z {azone} -m {self.image_name} \
@@ -570,8 +586,8 @@ class ConfigAssistant():
             return 1
 
         # Provision flavor data
+        file = os.path.join(data_path, f'{self.provider}_flavors.yaml')
         exec = os.path.join(UTILS_PATH, 'provision_flavor_data.sh')
-        file = os.path.join(data_path, 'alibaba_flavors.yaml')
         cmd = f'{exec} {flavor} {file}'
 
         LOG.debug(f'Update "{file}" by command "{cmd}".')
@@ -579,6 +595,10 @@ class ConfigAssistant():
         if res.returncode > 0:
             LOG.error(f'Failed to update "{file}".')
             return 1
+
+        # Provision testcases data
+        file = os.path.join(data_path, f'{self.provider}_testcases.yaml')
+        pass
 
         # Post-action
         self._post_action(container_name)

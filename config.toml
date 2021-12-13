@@ -27,5 +27,6 @@ log_path = "/home/cheshi/mirror/containers/avocado_scheduler/logs"
 
 [executor.test]
 image_name = "redhat_8_5_x64_20G_alibase_20211117_copied.qcow2"
-keypair = 'cheshi-docker'
+keypair = "cheshi-docker"
 identity_file = "/home/cheshi/.pem/cheshi-docker.pem"
+provider="alibaba"
