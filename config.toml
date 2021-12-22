@@ -26,10 +26,13 @@ enabled_regions = [
 log_path = "/home/cheshi/mirror/containers/avocado_scheduler/logs"
 
 [executor.test]
+provider = "alibaba"
+
 identity_file = "/home/cheshi/.pem/cheshi-docker.pem"
 image_name = "redhat_8_5_x64_20G_alibase_20211117_copied.qcow2"
-keypair = "cheshi-docker"
-provider = "alibaba"
+
+ssh_keypair = "cheshi-docker"
+
 testcases = """
 test_functional_lifecycle.py:LifeCycleTest.test_create_vm_password
 test_functional_lifecycle.py:LifeCycleTest.test_create_vm_sshkey

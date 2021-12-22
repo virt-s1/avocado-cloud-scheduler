@@ -491,9 +491,9 @@ class ConfigAssistant():
                       'must be suffixed with ".pem".')
             exit(1)
 
-        self.keypair = _test.get('keypair')
+        self.keypair = _test.get('ssh_keypair')
         if self.keypair is None:
-            LOG.error('The keypair (test.keypair) is not specified.')
+            LOG.error('The keypair (test.ssh_keypair) is not specified.')
             exit(1)
 
         self.image_name = _test.get('image_name')
@@ -614,7 +614,7 @@ class ConfigAssistant():
             - 1 if failed
         """
         # Pre-action
-        # self._pre_action(container_name)
+        self._pre_action(container_name)
 
         # Preparation
         data_path = os.path.join(self.container_path, container_name, 'data')
