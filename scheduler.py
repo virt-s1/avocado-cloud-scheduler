@@ -224,7 +224,7 @@ class TestScheduler():
         stop_sec = time.time()
         time_stop = time.strftime(
             '%Y-%m-%d %H:%M:%S', time.localtime(stop_sec))
-        time_used = round((stop_sec - start_sec), 2)
+        time_used = f'{(stop_sec - start_sec):.2f}'
 
         # - 0  - Test executed and passed (test_passed)
         # - 11 - Test error due to general error (test_general_error)
