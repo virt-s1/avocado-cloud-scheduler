@@ -64,6 +64,7 @@ def extract_info(spec):
     info['cpu'] = spec.get('CpuCoreCount')
     info['memory'] = spec.get('MemorySize')
     info['nic_count'] = spec.get('EniQuantity')
+    info['disk_quantity'] = spec.get('DiskQuantity')
 
     if spec.get('LocalStorageAmount'):
         info['disk_count'] = spec.get('LocalStorageAmount')
