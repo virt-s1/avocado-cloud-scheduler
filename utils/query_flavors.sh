@@ -48,7 +48,7 @@ done
 
 # Main
 lckfile=/tmp/aliyun_flavor_distribution.lck
-if [ -f $lckfile ]; then
+if [ -f "$lckfile" ]; then
     pid=$(cat $lckfile)
     if (ps -q $pid &>/dev/null); then
         echo "Another instance of this script is running as PID $pid, exit!"
@@ -62,9 +62,9 @@ tmpfile=/tmp/aliyun_flavor_distribution.tmp
 
 # Get all regions if not specified
 if [ -z "$regions" ]; then
-    x=$(aliyun ecs DescribeRegions | jq -r '.Regions.Region[].RegionId')
+    x=$(aliyun ecs DescribeRegions)
     [ "$?" != "0" ] && echo $x >&2 && exit 1
-    regions=$x
+    regions=$(echo $x | jq -r '.Regions.Region[].RegionId')
 fi
 
 # Query flavors in each region
