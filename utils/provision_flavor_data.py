@@ -74,6 +74,11 @@ def extract_info(spec):
         elif spec.get('LocalStorageCategory') == 'local_hdd_pro':
             info['disk_type'] = 'hdd'
 
+        # Some special families use NVMe as local disks
+        _families=['ecs.i3', 'ecs.g7se']
+        if spec.get('InstanceTypeFamily') in _families:
+            info['disk_type'] = 'nvme'
+
     return info
 
 
