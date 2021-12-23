@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 """
 Show task status of avocado-cloud scheduler by reading tasklist.
 """

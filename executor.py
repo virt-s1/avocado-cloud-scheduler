@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 """
 Execute containerized avocado-cloud tests for Alibaba Cloud.
 """
