@@ -7,7 +7,9 @@ function _is_region() {
 }
 
 function _is_image_id() {
-	[[ "$1" = m-* ]] && return 0 || return 1
+	[[ "$@" = m-* ]] || return 1
+	[[ "$@" =~ " " ]] && return 1
+	return 0
 }
 
 function az_to_region() {

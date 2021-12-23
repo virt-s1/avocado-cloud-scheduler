@@ -84,9 +84,9 @@ if [ "$?" != "0" ]; then
     exit 1
 fi
 
-if [ -z $image_id ]; then
+if [ -z "$image_id" ]; then
     image_id=$(image_name_to_id $image_name $region)
-    if [ -z $image_id ]; then
+    if [ -z "$image_id" ]; then
         echo "$(basename $0): no image named \"$image_name\" in region \"$region\"." >&2
         exit 1
     fi
@@ -98,8 +98,16 @@ if [ "$?" != "0" ]; then
     exit 1
 fi
 
-if [ -z $to_image_name ]; then
-    to_image_name=$(image_id_to_name $image_id $region)
+if [ -z "$image_name" ]; then
+    image_name=$(image_id_to_name $image_id $region)
+    if [ -z "$image_name" ]; then
+        echo "$(basename $0): no image associated with id \"$image_id\" in region \"$region\"." >&2
+        exit 1
+    fi
+fi
+
+if [ -z "$to_image_name" ]; then
+    to_image_name=$image_name
 fi
 
 description="Copied from image $image_id in the $region region by $(basename $0)."
