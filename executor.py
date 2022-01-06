@@ -675,6 +675,7 @@ class TestExecutor():
             - 33 - Lock or Unlock container failed (container_lock_error)
             - 41 - General failure while provisioning data (provision_error)
         """
+
         # Get AZ
         try:
             azone = self.cloud_assistant.pick_azone(flavor)
@@ -743,9 +744,15 @@ class TestExecutor():
             41: 'provision_error'
         }
 
-        return_code = self._run(flavor)
-        status = code_to_status.get(return_code, 'unknown_status')
+        timestamp = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())
+        LOG.info(f'Test Started: {timestamp}')
 
+        return_code = self._run(flavor)
+
+        timestamp = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())
+        LOG.info(f'Test Finished: {timestamp}')
+
+        status = code_to_status.get(return_code, 'unknown_status')
         LOG.info(f'Exit Code: {return_code} ({status})')
 
         return return_code
