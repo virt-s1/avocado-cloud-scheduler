@@ -131,8 +131,7 @@ class ContainerAssistant():
             - 1 for errors
         """
         cmd = f'podman run --name {container} --rm -itd \
-            {self.container_image} /usr/bin/sleep {lock_sec} \
-            >/dev/null'
+            {self.container_image} /usr/bin/sleep {lock_sec}'
         LOG.debug(f'Lock container "{container}" by command: {cmd}')
         res = subprocess.run(cmd, shell=True)
 
@@ -150,12 +149,15 @@ class ContainerAssistant():
             - 0 if succeed or,
             - 1 for errors
         """
-        cmd = f'podman kill {container} >/dev/null'
+        cmd = f'podman kill {container}'
         LOG.debug(f'Unlock container "{container}" by command: {cmd}')
         res = subprocess.run(cmd, shell=True)
 
         if res.returncode > 0:
             return 1
+
+        # Wait 2 seconds for releasing the resources
+        time.sleep(2)
 
         return 0
 
