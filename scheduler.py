@@ -211,13 +211,15 @@ class TestScheduler():
         ts = time.strftime('%y%m%d%H%M%S', time.localtime(start_sec))
         logname = f'task_{ts}_{flavor}.log'
         cmd = f'nohup {REPO_PATH}/executor.py --config {ARGS.config} \
-            --flavor {flavor} > {self.logpath}/{logname}'
+            --flavor {flavor} &> {self.logpath}/{logname}'
 
         if self.dry_run:
             time.sleep(random.random() * 3 + 2)
             return_code = random.choice(
                 [0, 11, 12, 13, 14, 15, 16, 21, 22, 23, 24, 31, 32, 33, 41])
         else:
+            LOG.debug(f'Run task by command "{cmd}".')
+            LOG.info('Saving log to "{self.logpath}/{logname}".')
             res = subprocess.run(cmd, shell=True)
             return_code = res.returncode
 
