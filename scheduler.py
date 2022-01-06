@@ -202,7 +202,6 @@ class TestScheduler():
         return 0
 
     def run_task(self, flavor):
-        LOG.info(f'Task for "{flavor}" is started.')
         start_sec = time.time()
         time_start = time.strftime(
             '%Y-%m-%d %H:%M:%S', time.localtime(start_sec))
@@ -213,7 +212,10 @@ class TestScheduler():
         cmd = f'nohup {REPO_PATH}/executor.py --config {ARGS.config} \
             --flavor {flavor} &> {self.logpath}/{logname}'
 
+        LOG.info(f'Task "{flavor}" started at {time_start}.')
+
         if self.dry_run:
+            LOG.info('!!!DRYRUN!!! Generate return code randomly.')
             time.sleep(random.random() * 3 + 2)
             return_code = random.choice(
                 [0, 11, 12, 13, 14, 15, 16, 21, 22, 23, 24, 31, 32, 33, 41])
@@ -227,6 +229,10 @@ class TestScheduler():
         time_stop = time.strftime(
             '%Y-%m-%d %H:%M:%S', time.localtime(stop_sec))
         time_used = f'{(stop_sec - start_sec):.2f}'
+
+        LOG.info(f'Task "{flavor}" finished at {time_stop} ({time_used} s).')
+
+        # Update the results
 
         # - 0  - Test executed and passed (test_passed)
         # - 11 - Test error due to general error (test_general_error)
@@ -289,7 +295,7 @@ class TestScheduler():
             time_used=time_used,
             test_log=logname)
 
-        LOG.info(f'Task for "{flavor}" is finished (Status: {status_code}).')
+        LOG.info(f'Task "{flavor}" finished with status "{status_code}".')
 
         return return_code
 
