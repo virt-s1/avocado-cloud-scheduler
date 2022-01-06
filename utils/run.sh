@@ -80,7 +80,7 @@ podman run --name ${container_name} --rm -it \
     -v ${result_path}:/root/avocado/job-results:rw \
     ${container_image} /bin/bash ./container/bin/test_alibaba.sh
 result=$?
-echo "DEBUG: return code from podman triggering: $result"
+echo "DEBUG: return code from podman triggering: $result" >&2
 
 # Get log directory
 logdir_by_link=$(file ${result_path}/latest | sed "s#^.*link to #${result_path}/#")
