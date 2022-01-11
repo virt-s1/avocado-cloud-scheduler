@@ -102,11 +102,86 @@ class TestScheduler():
             is_save_needed = False
 
             self.lock.acquire(timeout=60)
+
+            # Query and apply patches
+            try:
+                _file = f'{ARGS.tasklist}.patch'
+                _data = {}
+
+                if os.path.exists(_file):
+                    LOG.info(f'Found patch file: {_file}')
+                    with open(_file, 'r') as f:
+                        _data = toml.load(f)
+
+                    LOG.debug(f'Got patch(es): {_data}')
+
+                    LOG.info(f'Remove patch file: {_file}')
+                    os.unlink(_file)
+
+                for flavor, patch in _data.items():
+                    LOG.info(f'Apply patch "{patch}" to task "{flavor}".')
+
+                    # Check the action
+                    action = patch.pop('action', None)
+                    status = self.tasks.get(flavor, {}).get('status')
+                    if action == 'SCHEDULE' and status not in (
+                            None, 'TOBERUN', 'FINISHED', 'WITHDRAWN'):
+                        LOG.warning(
+                            f'Cannot SCHEDULE a task in {status} status.')
+                        continue
+                    if action == 'WITHDRAW' and status not in (
+                            'TOBERUN', 'WAITING'):
+                        LOG.warning(
+                            f'Cannot WITHDRAW a task in {status} status.')
+                        continue
+
+                    # Apply the patch
+                    self.tasks.setdefault(flavor, {})
+                    LOG.debug(f'Origin task info: {self.tasks[flavor]}')
+
+                    if action == 'SCHEDULE':
+                        self.tasks[flavor]['status'] = 'TOBERUN'
+                    elif action == 'WITHDRAW':
+                        self.tasks[flavor]['status'] = 'WITHDRAWING'
+
+                    self.tasks[flavor].update(patch)
+                    LOG.debug(f'Patched task info: {self.tasks[flavor]}')
+
+            except Exception as ex:
+                LOG.warning(f'Errors while Applying the patch: {ex}')
+
+            # Audit all the tasks
             for k, v in self.tasks.items():
-                if v.get('status') in (None, 'NEEDRETRY'):
+                if v.get('status') in (None, 'TOBERUN'):
+                    # Put the task in to the queue
                     self.queue.append(k)
-                    v['status'] = 'WAITING'
+
                     is_save_needed = True
+                    v['status'] = 'WAITING'
+                    v.setdefault('remaining_retries_testcase',
+                                 self.max_retries_testcase)
+                    v.setdefault('remaining_retries_resource',
+                                 self.max_retries_resource)
+
+                elif v.get('status') == 'WAITING':
+                    # Ensure (only one) task in the queue
+                    while self.queue.count(k) > 1:
+                        LOG.info(f'Remove duplicated "{k}" from the queue.')
+                        self.queue.remove(k)
+
+                    if self.queue.count(k) == 0:
+                        LOG.info(f'Reinsert missing "{k}" into the queue.')
+                        self.queue.append(k)
+
+                elif v.get('status') == 'WITHDRAWING':
+                    # Stop this task from running (remove it from the queue)
+                    while self.queue.count(k) > 0:
+                        LOG.info(f'Remove "{k}" from the queue.')
+                        self.queue.remove(k)
+
+                    is_save_needed = True
+                    v['status'] = 'WITHDRAWN'
+
             self.lock.release()
 
             if is_save_needed:
@@ -175,7 +250,7 @@ class TestScheduler():
 
                 # Rebuild the task info
                 _dict.clear()
-                _dict['status'] = 'NEEDRETRY'
+                _dict['status'] = 'TOBERUN'
                 _dict['remaining_retries_testcase'] = _remaining_retries_testcase
                 _dict['remaining_retries_resource'] = _remaining_retries_resource
                 _dict[retry_counter_name] -= 1
