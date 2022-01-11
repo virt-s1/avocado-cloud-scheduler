@@ -226,8 +226,14 @@ class TestScheduler():
         return 0
 
     def update_task(self, flavor, ask_for_retry=False,
-                    retry_counter_name='remaining_retries_testcase', **args):
+                    retry_counter_name='', **args):
         """Update the status for a specified task."""
+        # Parse parameters
+        if (ask_for_retry
+            and retry_counter_name not in ('remaining_retries_testcase',
+                                           'remaining_retries_resource')):
+            LOG.warning(f'Function update_task: Unknown retry_counter_name \
+({retry_counter_name}) for trying, won\'t perform retry logic!')
 
         # Lock
         self.lock.acquire(timeout=60)
