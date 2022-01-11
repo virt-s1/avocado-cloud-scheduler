@@ -302,7 +302,7 @@ class TestScheduler():
                 [0, 11, 12, 13, 14, 15, 16, 21, 22, 23, 24, 31, 32, 33, 41])
         else:
             LOG.debug(f'Run task by command "{cmd}".')
-            LOG.info('Saving log to "{self.logpath}/{logname}".')
+            LOG.info(f'Saving log to "{self.logpath}/{logname}".')
             res = subprocess.run(cmd, shell=True)
             return_code = res.returncode
 
