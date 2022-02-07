@@ -101,7 +101,7 @@ fi
 if [ -z "$image_name" ]; then
     image_name=$(image_id_to_name $image_id $region)
     if [ -z "$image_name" ]; then
-        echo "$(basename $0): no image associated with id \"$image_id\" in region \"$region\"." >&2
+        echo "ERROR: no image associated with id \"$image_id\" in region \"$region\"." >&2
         exit 1
     fi
 fi
@@ -129,13 +129,15 @@ if [ "$quiet" != "true" ]; then
     fi
 fi
 
-# Copy
-x=$(aliyun ecs CopyImage --RegionId $region --ImageId $image_id \
+# # Copy
+x=$(aliyun --endpoint $(region_to_endpoint $region) ecs CopyImage \
+    --RegionId $region --ImageId $image_id \
     --DestinationRegionId $to_region --DestinationImageName $to_image_name \
     --DestinationDescription "$description")
-if [ "$?" != "0" ]; then
-    echo $x
-    echo "$(basename $0): Failed to run Aliyun API." >&2
+
+if [ $? -ne 0 ]; then
+    echo "ERROR: Failed to run Aliyun API: CopyImage" >&2
+    echo $x >&2
     exit 1
 else
     echo $x
