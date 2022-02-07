@@ -55,7 +55,7 @@ if [ -f "$lckfile" ]; then
         exit 2
     fi
 fi
-echo $$ > $lckfile
+echo $$ >$lckfile
 
 tmpfile=/tmp/aliyun_flavor_distribution.tmp
 : >$tmpfile
@@ -70,11 +70,21 @@ fi
 # Query flavors in each region
 for region in $regions; do
     # Get AvailableResource
-    echo -e "\nQuerying resource from the region $region ..." >&2
+    echo -e "INFO: Querying resource from the region $region ..." >&2
     x=$(aliyun ecs DescribeAvailableResource --RegionId $region \
         --DestinationResource InstanceType)
-    if [ "$?" != "0" ]; then
-        echo "$(basename $0): warning: aliyun ecs DescribeAvailableResource --RegionId $region" >&2
+
+    if [ $? -ne 0 ] && [[ "$x" =~ "InvalidOperation.NotSupportedEndpoint" ]]; then
+        echo "WARNING: DescribeAvailableResource: NotSupportedEndpoint." >&2
+        endpoint=$(aliyun ecs DescribeRegions | jq -r ".Regions.Region[] | \
+            select(.RegionId==\"$region\") | .RegionEndpoint")
+        echo "INFO: Retry with Endpoint: $endpoint" >&2
+        x=$(aliyun --endpoint $endpoint ecs DescribeAvailableResource \
+            --RegionId $region --DestinationResource InstanceType)
+    fi
+
+    if [ $? -ne 0 ]; then
+        echo "WARNING: DescribeAvailableResource failed." >&2
         echo $x >&2
         continue
     fi
@@ -97,10 +107,10 @@ for region in $regions; do
     done
 done
 
-echo -e "\nSaving resource matrix to $output ..." >&2
+echo -e "INFO: Saving resource matrix to $output ..." >&2
 mv $tmpfile $output
 rm $lckfile
 
-echo -e "\nDone!" >&2
+echo -e "INFO: Done!" >&2
 
 exit 0
