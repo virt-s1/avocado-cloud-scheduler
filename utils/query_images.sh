@@ -62,13 +62,17 @@ if [ "$?" != "0" ]; then
 fi
 
 # Query and get image info
-cmd="aliyun ecs DescribeImages --RegionId $region --PageSize 100"
+endpoint=$(region_to_endpoint $region)
+[ -n "$endpoint" ] && cmd="aliyun --endpoint $endpoint" || cmd="aliyun"
+
+cmd="$cmd ecs DescribeImages --RegionId $region --PageSize 100"
 [ "$marketplace" = "true" ] && cmd="$cmd --ImageOwnerAlias marketplace"
 
 for ((p = 1; p < 100; p++)); do
-    x=$($cmd --PageNumber $p)
+    _cmd="$cmd --PageNumber $p"
+    x=$(${_cmd})
     if [ "$?" != "0" ]; then
-        echo "$(basename $0): Failed to run Aliyun API." >&2
+        echo "ERROR: Failed to run Aliyun API. Command: ${_cmd}" >&2
         exit 1
     fi
     image=$(echo $x | jq -r '.Images.Image[]')
@@ -87,7 +91,7 @@ fi
 for id in $id_list; do
     block=$(echo $images | jq -r "select(.ImageId==\"$id\")")
     if [ "$?" != "0" ]; then
-        echo "$(basename $0): Error while looking for the specific image -- $id" >&2
+        echo "ERROR: Error while looking for the specific image -- $id" >&2
         exit 1
     fi
 

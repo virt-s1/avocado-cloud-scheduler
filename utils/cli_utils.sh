@@ -92,6 +92,15 @@ function image_name_to_id() {
 	echo $x | jq -r '.Images.Image[].ImageId'
 }
 
+function region_to_endpoint() {
+	# Get endpoint by region
+	# Help: $0 <region>
+	_is_region "$1" || return 1
+	x=$(aliyun ecs DescribeRegions)
+	[ $? = 0 ] || return 1
+	echo $x | jq -r ".Regions.Region[] | select(.RegionId==\"$1\") | .RegionEndpoint"
+}
+
 function read_data() {
 	# Read specified data from a yaml file
 	# Usage: $0 <file> <keypath>
