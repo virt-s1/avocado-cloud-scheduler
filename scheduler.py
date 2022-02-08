@@ -234,8 +234,9 @@ class TestScheduler():
         if (ask_for_retry
             and retry_counter_name not in ('remaining_retries_testcase',
                                            'remaining_retries_resource')):
-            LOG.warning(f'Function update_task: Unknown retry_counter_name \
-({retry_counter_name}) for trying, won\'t perform retry logic!')
+            LOG.warning(f'Function _update_task({flavor}): \
+Unsupported retry_counter_name ({retry_counter_name}), skip retry logic!')
+            ask_for_retry = False
 
         # Lock
         self.lock.acquire(timeout=60)
