@@ -92,11 +92,11 @@ class TestScheduler():
         self.queue = []
         self.threads = []
         self.producer = threading.Thread(
-            target=self.producer, name='Producer', daemon=True)
+            target=self._producer, name='Producer', daemon=True)
         self.consumer = threading.Thread(
-            target=self.consumer, name='Consumer', daemon=False)
+            target=self._consumer, name='Consumer', daemon=False)
 
-    def producer(self):
+    def _producer(self):
         while True:
             time.sleep(1)
             is_save_needed = False
@@ -189,7 +189,7 @@ class TestScheduler():
             if is_save_needed:
                 self._save_tasks()
 
-    def consumer(self):
+    def _consumer(self):
         # Start after the Producer
         time.sleep(2)
 
@@ -199,7 +199,7 @@ class TestScheduler():
             # Run tasks if possible
             if len(self.threads) < self.max_threads and len(self.queue) > 0:
                 flavor = self.queue.pop(0)
-                t = threading.Thread(target=self.run_task,
+                t = threading.Thread(target=self._run_task,
                                      args=(flavor,), name='RunTask')
                 t.start()
                 self.threads.append(t)
@@ -227,8 +227,8 @@ class TestScheduler():
         self.consumer.join()
         return 0
 
-    def update_task(self, flavor, ask_for_retry=False,
-                    retry_counter_name='', **args):
+    def _update_task(self, flavor, ask_for_retry=False,
+                     retry_counter_name='', **args):
         """Update the status for a specified task."""
         # Parse parameters
         if (ask_for_retry
@@ -267,7 +267,7 @@ class TestScheduler():
         # Unlock
         self.lock.release()
 
-        LOG.debug(f'Function update_task({flavor}) self.tasks: {self.tasks}')
+        LOG.debug(f'Function _update_task({flavor}) self.tasks: {self.tasks}')
         self._save_tasks()
 
     def _save_tasks(self):
@@ -284,13 +284,13 @@ class TestScheduler():
 
         return 0
 
-    def run_task(self, flavor):
+    def _run_task(self, flavor):
         start_sec = time.time()
         time_start = time.strftime(
             '%Y-%m-%d %H:%M:%S', time.localtime(start_sec))
 
-        self.update_task(flavor, status='RUNNING', time_start=time_start,
-                         time_stop=None, time_used=None)
+        self._update_task(flavor, status='RUNNING', time_start=time_start,
+                          time_stop=None, time_used=None)
         ts = time.strftime('%y%m%d%H%M%S', time.localtime(start_sec))
         logname = f'task_{ts}_{flavor}.log'
         cmd = f'nohup {REPO_PATH}/executor.py --config {ARGS.config} \
@@ -368,7 +368,7 @@ class TestScheduler():
             _retry_counter_name = None
 
         # Update the task info
-        res = self.update_task(
+        res = self._update_task(
             flavor,
             ask_for_retry=_ask_for_retry,
             retry_counter_name=_retry_counter_name,
@@ -382,9 +382,6 @@ class TestScheduler():
         LOG.info(f'Task "{flavor}" finished with status "{status_code}".')
 
         return return_code
-
-    def post_process(self, code):
-        LOG.debug(f'Got return code {code} in post_process function.')
 
 
 if __name__ == '__main__':
