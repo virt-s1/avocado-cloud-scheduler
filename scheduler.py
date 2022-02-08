@@ -139,6 +139,8 @@ class TestScheduler():
                     self.tasks.setdefault(flavor, {})
                     LOG.debug(f'Origin task info: {self.tasks[flavor]}')
 
+                    is_save_needed = True
+
                     if action == 'SCHEDULE':
                         self.tasks[flavor]['status'] = 'TOBERUN'
                     elif action == 'WITHDRAW':
