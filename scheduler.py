@@ -289,7 +289,8 @@ class TestScheduler():
         time_start = time.strftime(
             '%Y-%m-%d %H:%M:%S', time.localtime(start_sec))
 
-        self.update_task(flavor, status='RUNNING', time_start=time_start)
+        self.update_task(flavor, status='RUNNING', time_start=time_start,
+                         time_stop=None, time_used=None)
         ts = time.strftime('%y%m%d%H%M%S', time.localtime(start_sec))
         logname = f'task_{ts}_{flavor}.log'
         cmd = f'nohup {REPO_PATH}/executor.py --config {ARGS.config} \
