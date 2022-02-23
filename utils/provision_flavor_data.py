@@ -44,6 +44,7 @@ def query_spec(flavor):
     cmd = 'aliyun ecs DescribeInstanceTypes'
     p = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE)
     if p.returncode != 0:
+        LOG.error(p.stdout)
         return None
 
     _data = json.loads(p.stdout)
@@ -76,9 +77,14 @@ def extract_info(spec):
             info['disk_type'] = 'hdd'
 
         # Some special families use NVMe as local disks
-        _families=['ecs.i3', 'ecs.g7se']
+        _families = ['ecs.i3', 'ecs.g7se']
         if spec.get('InstanceTypeFamily') in _families:
             info['disk_type'] = 'nvme'
+
+    # Some security-enhanced instance families have 50% encrypted memory
+    _families = ['ecs.c7t', 'ecs.g7t', 'ecs.r7t']
+    if spec.get('InstanceTypeFamily') in _families:
+        info['memory'] = int(info['memory'] * 0.5)
 
     return info
 
