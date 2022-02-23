@@ -37,8 +37,13 @@ Prepare resources:
 ```bash
 # Deliver image (example)
 ./utils/copy_image.sh -r cn-hangzhou -n redhat_8_5_x64_20G_alibase_20211117.qcow2 \
-    -R cn-hangzhou -N redhat_8_5_x64_20G_alibase_20211117_copied.qcow2
-./utils/copy_image.sh -r cn-hangzhou -n redhat_8_5_x64_20G_alibase_20211117_copied.qcow2 -R cn-beijing
+    -R cn-hangzhou -N redhat_8_5_x64_20G_alibase_20211117_bios.qcow2
+
+./utils/switch_image_boot.sh -r cn-hangzhou -n redhat_8_5_x64_20G_alibase_20211117_bios.qcow2 -m BIOS
+./utils/copy_image.sh -r cn-hangzhou -n redhat_8_5_x64_20G_alibase_20211117_bios.qcow2 -R cn-beijing
+
+./utils/switch_image_boot.sh -r cn-hangzhou -n redhat_8_5_x64_20G_alibase_20211117_uefi.qcow2 -m UEFI
+./utils/copy_image.sh -r cn-hangzhou -n redhat_8_5_x64_20G_alibase_20211117_uefi.qcow2 -R cn-beijing
 
 # Create VSwitches (example)
 ./utils/create_vsw_for_region.sh -r cn-beijing
@@ -53,7 +58,7 @@ Then update the configuration in `config.toml`.
 ## 4. Manual test
 ```bash
 cd avocado-cloud-scheduler
-./executor.py --flavor esx.i2.xlarge
+./executor.py --flavor ecs.i2.xlarge
 ```
 
 ## 5. Auto test
