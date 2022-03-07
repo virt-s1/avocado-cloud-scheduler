@@ -171,7 +171,8 @@ class TestScheduler():
                         LOG.info(f'Remove duplicated "{k}" from the queue.')
                         self.queue.remove(k)
 
-                    if self.queue.count(k) == 0:
+                    # Rebuild the queue only at the starting phase (threads is empty)
+                    if not self.threads and self.queue.count(k) == 0:
                         LOG.info(f'Reinsert missing "{k}" into the queue.')
                         self.queue.append(k)
 
