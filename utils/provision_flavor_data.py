@@ -70,16 +70,21 @@ def extract_info(spec):
     if spec.get('LocalStorageAmount'):
         info['disk_count'] = spec.get('LocalStorageAmount')
         info['disk_size'] = spec.get('LocalStorageCapacity')
+        info['disk_type'] = spec.get('LocalStorageCategory')
 
-        if spec.get('LocalStorageCategory') == 'local_ssd_pro':
-            info['disk_type'] = 'ssd'
-        elif spec.get('LocalStorageCategory') == 'local_hdd_pro':
-            info['disk_type'] = 'hdd'
+    # Some special families use NVMe driver for local disks
+    _families = ['ecs.i3', 'ecs.i3g']
+    if spec.get('InstanceTypeFamily') in _families:
+        info['local_disk_driver'] = 'nvme'
+    else:
+        info['local_disk_driver'] = 'virtio_blk'
 
-        # Some special families use NVMe as local disks
-        _families = ['ecs.i3', 'ecs.g7se']
-        if spec.get('InstanceTypeFamily') in _families:
-            info['disk_type'] = 'nvme'
+    # Some special families use NVMe driver for cloud disks
+    _families = ['ecs.g7se']
+    if spec.get('InstanceTypeFamily') in _families:
+        info['cloud_disk_driver'] = 'nvme'
+    else:
+        info['cloud_disk_driver'] = 'virtio_blk'
 
     # Some security-enhanced instance families have 50% encrypted memory
     _families = ['ecs.c7t', 'ecs.g7t', 'ecs.r7t']
