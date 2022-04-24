@@ -411,14 +411,24 @@ Occupied Zone: {occupied_azones}''')
         LOG.debug(f'Function _get_all_regions returns: {regions}')
         return regions
 
+    def _get_endpoint(self, region):
+        data = self._aliyun_cli('aliyun ecs DescribeRegions')
+        regions_info = data.get('Regions', {}).get('Region', [])
+        for x in regions_info:
+            if x.get('RegionId', '') == region:
+                endpoint = x.get('RegionEndpoint', '')
+                break
+        return endpoint
+
     def _get_all_instances(self, regions=None):
         if not regions:
             regions = self._get_all_regions()
 
         instances = []
         for region in regions:
+            endpoint = self._get_endpoint(region)
             data = self._aliyun_cli(
-                f'aliyun ecs DescribeInstances --RegionId {region} --PageSize 50')
+                f'aliyun --endpoint {endpoint} ecs DescribeInstances --RegionId {region} --PageSize 50')
             if data is None:
                 continue
             for x in data.get('Instances', {}).get('Instance'):
