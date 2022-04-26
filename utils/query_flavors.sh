@@ -74,7 +74,7 @@ for region in $regions; do
     x=$(aliyun ecs DescribeAvailableResource --RegionId $region \
         --DestinationResource InstanceType)
 
-    if [ $? -ne 0 ] && [[ "$x" =~ "InvalidOperation.NotSupportedEndpoint" ]]; then
+    if [ $? -ne 0 ]; then
         echo "WARNING: DescribeAvailableResource: NotSupportedEndpoint." >&2
         endpoint=$(aliyun ecs DescribeRegions | jq -r ".Regions.Region[] | \
             select(.RegionId==\"$region\") | .RegionEndpoint")
