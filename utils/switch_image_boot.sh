@@ -65,6 +65,7 @@ if [ "$?" != "0" ]; then
     exit 1
 fi
 
+
 # Get image ID
 image_id=$(image_name_to_id $image_name $region)
 if [ -z $image_id ]; then
@@ -82,9 +83,13 @@ fi
 echo "In region \"$region\", switching image \"$image_name\" boot mode to \"$boot_mode\"."
 x=$(aliyun ecs ModifyImageAttribute --RegionId $region --ImageId $image_id --BootMode $boot_mode)
 if [ "$?" != "0" ]; then
-    echo $x
-    echo "$(basename $0): Failed to run Aliyun API." >&2
-    exit 1
+    endpoint=$(region_to_endpoint $region)
+    x=$(aliyun --endpoint $endpoint ecs ModifyImageAttribute --RegionId $region --ImageId $image_id --BootMode $boot_mode)
+    if [ "$?" != "0" ]; then
+        echo $x
+        echo "$(basename $0): Failed to run Aliyun API." >&2
+        exit 1
+    fi
 else
     echo $x
     exit 0
