@@ -36,7 +36,7 @@ function _aliyun_ep() {
 	shift
 
 	x=$(aliyun $@)
-	if [ $? -ne 0 ] && [[ "$x" =~ "InvalidOperation.NotSupportedEndpoint" ]]; then
+	if [ $? -ne 0 ]; then
 		local endpoint=$(region_to_endpoint ${region})
 		echo "INFO: Retry with native endpoint: $endpoint" >&2
 		x=$(aliyun --endpoint $endpoint $@)
@@ -116,6 +116,11 @@ function image_name_to_id() {
 	# Help: $0 <image-name> <region>
 	_is_region "$2" || return 1
 	x=$(_aliyun_ep $2 ecs DescribeImages --RegionId $2 --ImageName $1)
+	# if [ $? = 0 ] && [ -z "$x" ]; then
+	#     x=$(_aliyun_ep $2 ecs DescribeImages --RegionId $2 --ImageName $1 --ImageOwnerAlias marketplace)
+	# elif [ $? != 0 ]; then
+	#     return 1
+	# fi
 	[ $? = 0 ] || return 1
 	echo $x | jq -r '.Images.Image[].ImageId'
 }
