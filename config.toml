@@ -11,6 +11,7 @@ container_path = "/home/cheshi/mirror/containers/avocado_scheduler"
 container_pool_name = "ac"
 container_pool_size = 32
 dry_run = false
+#zone = "cn-shenzhen-f"
 enabled_regions = [
   "cn-beijing",
   "cn-hangzhou",
@@ -61,6 +62,7 @@ test_functional_checkup.py:GeneralTest.test_kdump_status
 test_functional_checkup.py:GeneralTest.test_check_image_id
 test_functional_checkup.py:GeneralTest.test_check_vulnerabilities
 test_functional_network.py:NetworkTest.test_hotplug_nics
+test_functional_network.py:NetworkTest.test_assign_unassign_secondary_private_ips
 test_functional_network.py:NetworkTest.test_coldplug_nics
 test_functional_clouddisk.py:CloudDiskTest.test_local_disks
 test_functional_clouddisk.py:CloudDiskTest.test_online_attach_detach_cloud_disks

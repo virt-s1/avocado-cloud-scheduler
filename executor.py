@@ -246,6 +246,11 @@ class CloudAssistant():
             config = _data.get('executor', {})
             LOG.debug(f'{ARGS.config}: {config}')
 
+        self.zone = config.get('zone')
+        if self.zone:
+            LOG.debug(f'Specify the zone: {self.zone}')
+            return
+
         enabled_regions = config.get('enabled_regions')
         if not isinstance(enabled_regions, list):
             LOG.error('Invalid enabled_regions (list) in config file.')
@@ -686,12 +691,15 @@ class TestExecutor():
             - 41 - General failure while provisioning data (provision_error)
         """
 
-        # Get AZ
-        try:
-            azone = self.cloud_assistant.pick_azone(flavor)
-        except Exception as ex:
-            LOG.error(f'Failed to get AZ: {ex}')
-            return 21
+        if self.cloud_assistant.zone:
+            azone = self.cloud_assistant.zone
+        else:
+            # Get AZ
+            try:
+                azone = self.cloud_assistant.pick_azone(flavor)
+            except Exception as ex:
+                LOG.error(f'Failed to get AZ: {ex}')
+                return 21
 
         if isinstance(azone, int):
             return azone + 20
