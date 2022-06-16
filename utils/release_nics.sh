@@ -59,10 +59,13 @@ fi
 # Query
 echo -e "\nQuerying NICs..." >&2
 
+codepath=$(dirname $(which $0))
+source $codepath/cli_utils.sh
 nics=()
 
 for region in $regions; do
-    x=$(aliyun ecs DescribeNetworkInterfaces --RegionId $region --PageSize 100)
+    endpoint=$(region_to_endpoint $region)
+    x=$(aliyun --endpoint $endpoint ecs DescribeNetworkInterfaces --RegionId $region --PageSize 100)
     [ "$?" != "0" ] && echo $x >&2 && continue
 
     tuples=$(echo $x | jq -r '.NetworkInterfaceSets.NetworkInterfaceSet')
@@ -122,10 +125,11 @@ for nic in ${nics[@]}; do
         continue
     fi
 
+    endpoint=$(region_to_endpoint $_region_id)
     # Try to release
-    aliyun ecs DeleteNetworkInterface --RegionId $_region_id --NetworkInterfaceId ${_nic_id} 1>/dev/null && sleep 2
+    aliyun --endpoint $endpoint ecs DeleteNetworkInterface --RegionId $_region_id --NetworkInterfaceId ${_nic_id} 1>/dev/null && sleep 2
 
-    x=$(aliyun ecs DescribeNetworkInterfaces --RegionId ${_region_id} --NetworkInterfaceId.1 ${_nic_id})
+    x=$(aliyun --endpoint $endpoint ecs DescribeNetworkInterfaces --RegionId ${_region_id} --NetworkInterfaceId.1 ${_nic_id})
     if [ "$?" != "0" ]; then
         echo $x >&2
         echo "${_region_id}: ${_nic_id}(${_nic_name}): FAIL (DescribeNetworkInterfaces)"

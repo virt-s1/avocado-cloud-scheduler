@@ -59,10 +59,13 @@ fi
 # Query
 echo -e "\nQuerying Cloud Disks..." >&2
 
+codepath=$(dirname $(which $0))
+source $codepath/cli_utils.sh
 disks=()
 
 for region in $regions; do
-    x=$(aliyun ecs DescribeDisks --RegionId $region --PageSize 100)
+    endpoint=$(region_to_endpoint $region)
+    x=$(aliyun --endpoint $endpoint ecs DescribeDisks --RegionId $region --PageSize 100)
     [ "$?" != "0" ] && echo $x >&2 && continue
 
     tuples=$(echo $x | jq -r '.Disks.Disk')
@@ -119,10 +122,11 @@ for disk in ${disks[@]}; do
         continue
     fi
 
+    endpoint=$(region_to_endpoint $_region_id)
     # Try to release
-    aliyun ecs DeleteDisk --DiskId ${_disk_id} 1>/dev/null && sleep 2
+    aliyun --endpoint $endpoint ecs DeleteDisk --DiskId ${_disk_id} 1>/dev/null && sleep 2
 
-    x=$(aliyun ecs DescribeDisks --RegionId ${_region_id} --DiskIds "['${_disk_id}']")
+    x=$(aliyun --endpoint $endpoint ecs DescribeDisks --RegionId ${_region_id} --DiskIds "['${_disk_id}']")
     if [ "$?" != "0" ]; then
         echo $x >&2
         echo "${_region_id}: ${_disk_id}(${_disk_name}): FAIL (DescribeDisks)"
