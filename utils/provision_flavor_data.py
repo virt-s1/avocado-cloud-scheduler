@@ -41,7 +41,7 @@ def aliyun_cli(self, cmd):
 def query_spec(flavor):
     """Query instance SPEC."""
 
-    cmd = 'aliyun ecs DescribeInstanceTypes'
+    cmd = 'aliyun ecs DescribeInstanceTypes --InstanceTypeFamily ' + flavor[:flavor.rfind('.')]
     p = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE)
     if p.returncode != 0:
         LOG.error(p.stdout)
