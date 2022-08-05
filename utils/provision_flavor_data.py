@@ -41,7 +41,7 @@ def aliyun_cli(self, cmd):
 def query_spec(flavor):
     """Query instance SPEC."""
 
-    cmd = 'aliyun ecs DescribeInstanceTypes --InstanceTypeFamily ' + flavor[:flavor.rfind('.')]
+    cmd = 'aliyun ecs DescribeInstanceTypes --InstanceTypes.1 ' + flavor
     p = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE)
     if p.returncode != 0:
         LOG.error(p.stdout)
@@ -66,6 +66,7 @@ def extract_info(spec):
     info['memory'] = spec.get('MemorySize')
     info['nic_count'] = spec.get('EniQuantity')
     info['disk_quantity'] = spec.get('DiskQuantity')
+    info['private_ip_quantity'] = spec.get('EniPrivateIpAddressQuantity')
 
     if spec.get('LocalStorageAmount'):
         info['disk_count'] = spec.get('LocalStorageAmount')
