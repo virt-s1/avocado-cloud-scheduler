@@ -92,6 +92,12 @@ def extract_info(spec):
     if spec.get('InstanceTypeFamily') in _families:
         info['memory'] = int(info['memory'] * 0.5)
 
+    _families = ['ecs.ebmg6a', 'ecs.ebmc6a', 'ecs.ebmr6a', 'ecs.ebmg7a', 'ecs.ebmc7a', 'ecs.ebmr7a', \
+        'ecs.g6t', 'ecs.c6t', 'ecs.r6t', 'ecs.g7t', 'ecs.c7t', 'ecs.r7t']
+    if spec.get('InstanceTypeFamily') in _families:
+        info['boot_mode'] = 'uefi'
+    else:
+        info['boot_mode'] = 'bios'
     return info
 
 
