@@ -98,6 +98,13 @@ def extract_info(spec):
         info['boot_mode'] = 'uefi'
     else:
         info['boot_mode'] = 'bios'
+
+    _families = ['ecs.g8m', 'ecs.g6r', 'ecs.c6r']
+    if spec.get('InstanceTypeFamily') in _families:
+        info['arch'] = 'aarch64'
+    else:
+        info['arch'] = 'x86_64'
+
     return info
 
 
