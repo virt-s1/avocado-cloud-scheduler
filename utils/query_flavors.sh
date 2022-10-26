@@ -108,8 +108,8 @@ for region in $regions; do
 done
 
 echo -e "INFO: Saving resource matrix to $output ..." >&2
-mv $tmpfile $output
-rm $lckfile
+mv -f $tmpfile $output
+rm -f $lckfile
 
 echo -e "INFO: Done!" >&2
 
