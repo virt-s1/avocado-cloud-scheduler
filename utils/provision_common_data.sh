@@ -133,19 +133,29 @@ vsw_id=$(az_to_vsw $az_id)
 sg_id=$(az_to_sg $az_id)
 
 [ -z "$region_id" ] && echo "$(basename $0): Failed to get the Region ID." >&2 && exit 1
-[ -z "$vsw_id" ] && echo "$(basename $0): Failed to get the VSwitch ID." >&2 && exit 1
+#[ -z "$vsw_id" ] && echo "$(basename $0): Failed to get the VSwitch ID." >&2 && exit 1
+if [ -z "$vsw_id" ]; then
+	./utils/create_vsw_for_region.sh -r $region_id
+fi
 [ -z "$sg_id" ] && echo "$(basename $0): Failed to get the Security Group ID." >&2 && exit 1
 
 # Get related data from the Image Name
 if [ ! -z "$image_name" ]; then
 	echo "$(basename $0): Getting Image ID for '$image_name' in the '$region_id' region." >&2
 	image_id=$(image_name_to_id $image_name $region_id)
-	if [ -z "$image_id" ]; then
-		echo "$(basename $0): Cannot get the Image ID for $image_name in the region $region_id." >&2
-		exit 1
-	fi
 
-	rehl_ver=$(echo $image_name | sed 's/.*[A-Za-z][._-]\([0-9]\)[._-]\([0-9]\)[._-].*/\1.\2/')
+	if [ -z "$image_id" ]; then
+	    image_id=$(./utils/query_images.sh -r $region_id -M | grep $image_name | awk '{print $2}')
+		echo "marketplace image id: $image_id"
+		[ -z "$image_id" ] && {
+		    echo "$(basename $0): Cannot get the Image ID for $image_name in the region $region_id." >&2
+		    exit 1
+		}
+		rhel_ver=$(echo $image_name | awk -F '_' '{print $5}')
+	else
+		echo "private image id: $image_id"
+		rhel_ver=$(echo $image_name | sed 's/.*[A-Za-z][._-]\([0-9]\)[._-]\([0-9]\)[._-].*/\1.\2/')
+	fi
 
 #	if [[ $image_name =~ ^RHEL- ]]; then
 #		# For the BYOS images (named as "RHEL-X.Y")
@@ -193,7 +203,7 @@ write_data $file SecurityGroup.id $sg_id
 if [ ! -z "$image_name" ]; then
 	write_data $file Image.name $image_name
 	write_data $file Image.id $image_id
-	write_data $file VM.rhel_ver $rehl_ver
+	write_data $file VM.rhel_ver $rhel_ver
 	write_data $file VM.username $image_user
 	write_data $file VM.password $image_pass
 fi

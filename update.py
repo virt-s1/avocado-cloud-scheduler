@@ -35,7 +35,7 @@ ARG_PARSER.add_argument(
     action='store',
     help='The action to perform.',
     choices=('SCHEDULE', 'WITHDRAW'),
-    default=None,
+    default='SCHEDULE',
     required=False)
 ARG_PARSER.add_argument(
     '--remaining_retries_testcase',

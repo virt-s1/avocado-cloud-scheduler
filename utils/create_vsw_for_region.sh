@@ -77,16 +77,25 @@ if [ "$?" != "0" ]; then
     exit 1
 fi
 
+endpoint=$(region_to_endpoint $region)
+
 # Get zones
-x=$(aliyun ecs DescribeZones --RegionId $region)
+x=$(aliyun --endpoint $endpoint ecs DescribeZones --RegionId $region)
 zones=$(echo $x | jq -r '.Zones.Zone[].ZoneId' | sort)
 [ -z "$zones" ] && echo "Failed to get Zones." >&2 && exit 1
 
 # Get default VPC
-vpc_block=$(aliyun ecs DescribeVpcs --RegionId $region --IsDefault true)
+vpc_block=$(aliyun --endpoint $endpoint ecs DescribeVpcs --RegionId $region)
 vpc_id=$(echo ${vpc_block} | jq -r '.Vpcs.Vpc[].VpcId')
+if [ -z "${vpc_id}" ]; then
+    # Create VPC
+    aliyun --endpoint $endpoint ecs CreateVpc --RegionId $region
+    vpc_block=$(aliyun --endpoint $endpoint ecs DescribeVpcs --RegionId $region)
+    vpc_id=$(echo ${vpc_block} | jq -r '.Vpcs.Vpc[].VpcId')
+    [ -z "${vpc_id}" ] && echo "Failed to get VPC ID." >&2 && exit 1
+fi
+
 vpc_cidr=$(echo ${vpc_block} | jq -r '.Vpcs.Vpc[].CidrBlock')
-[ -z "${vpc_id}" ] && echo "Failed to get VPC ID." >&2 && exit 1
 [ -z "${vpc_cidr}" ] && echo "Failed to get VPC CIDR Block." >&2 && exit 1
 
 # Assert: VPC CIDR in format "x.x.0.0/16"
@@ -99,11 +108,11 @@ else
 fi
 
 # Query all VSwitches from default VPC
-vsw_block=$(aliyun ecs DescribeVSwitches --RegionId $region --VpcId ${vpc_id} --PageSize 50)
+vsw_block=$(aliyun --endpoint $endpoint ecs DescribeVSwitches --RegionId $region --VpcId ${vpc_id} --PageSize 50)
 
 # Get all Zones with VSwithch
-vsw_zones=$(echo ${vsw_block} | jq -r '.VSwitches.VSwitch[].ZoneId') || exit 1
-vsw_cidrs=$(echo ${vsw_block} | jq -r '.VSwitches.VSwitch[].CidrBlock') || exit 1
+vsw_zones=$(echo ${vsw_block} | jq -r '.VSwitches.VSwitch[].ZoneId')
+vsw_cidrs=$(echo ${vsw_block} | jq -r '.VSwitches.VSwitch[].CidrBlock')
 
 for zone in $zones; do
     if (echo ${vsw_zones} | grep -q -w $zone); then
@@ -116,9 +125,16 @@ for zone in $zones; do
         vsw_cidr=$(get_available_cidr $vpc_cidr $vsw_cidrs)
         [ -z "${vsw_cidr}" ] && echo "No more CIDR block candidates." && exit 1
         vsw_cidrs="${vsw_cidrs} $vsw_cidr"
-        x=$(aliyun ecs CreateVSwitch --RegionId $region --ZoneId $zone --VpcId ${vpc_id} \
-            --CidrBlock ${vsw_cidr} --VSwitchName cheshi-auto-vswitch \
-            --Description "Created with automation scripts by cheshi.")
+        x=$(aliyun --endpoint $endpoint ecs CreateVSwitch --RegionId $region --ZoneId $zone --VpcId ${vpc_id} \
+            --CidrBlock ${vsw_cidr} --VSwitchName qe-auto-vswitch \
+            --Description "Created with automation scripts.")
+
+        if [ $? -ne 0 ]; then
+            sleep 10
+            x=$(aliyun --endpoint $endpoint ecs CreateVSwitch --RegionId $region --ZoneId $zone --VpcId ${vpc_id} \
+                --CidrBlock ${vsw_cidr} --VSwitchName qe-auto-vswitch \
+                --Description "Created with automation scripts.")
+        fi
         if [ "$?" = "0" ]; then
             vsw_id=$(echo $x | jq -r '.VSwitchId') || exit 1
             echo "$zone: ${vsw_id} [${vsw_cidr}] (NEW)"
