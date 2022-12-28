@@ -172,9 +172,10 @@ class TestScheduler():
                         self.queue.remove(k)
 
                     # Rebuild the queue only at the starting phase (threads is empty)
-                    if not self.threads and self.queue.count(k) == 0:
-                        LOG.info(f'Reinsert missing "{k}" into the queue.')
-                        self.queue.append(k)
+                    # The below logic seems not correct according to the experiments
+                    # if not self.threads and self.queue.count(k) == 0:
+                    #     LOG.info(f'Reinsert missing "{k}" into the queue.')
+                    #     self.queue.append(k)
 
                 elif v.get('status') == 'WITHDRAWING':
                     # Stop this task from running (remove it from the queue)
@@ -356,18 +357,21 @@ Unsupported retry_counter_name ({retry_counter_name}), skip retry logic!')
 
         status_code = code_to_status.get(return_code, 'unknown_status')
 
-        if return_code in (12, 23, 24, 31, 32, 33):
+        _ask_for_retry = False
+        _retry_counter_name = None
+        if return_code in (12, 23, 24, 31, 32, 33, 41):
             # Need to retry for resouces
             _ask_for_retry = True
             _retry_counter_name = 'remaining_retries_resource'
         elif return_code in (15,):
-            # Need to retry for testcase
-            _ask_for_retry = True
-            _retry_counter_name = 'remaining_retries_testcase'
-        else:
-            # No need to retry
-            _ask_for_retry = False
-            _retry_counter_name = None
+            res = subprocess.run(["cat %s/%s | grep 'RESULTS' | awk '{print $7}'" % (self.logpath,logname)], \
+                shell=True, stdout=subprocess.PIPE)
+            if res.returncode == 0:
+                error_num = int(res.stdout.decode())
+                if error_num >= 6:
+                    # Need to retry for testcase
+                    _ask_for_retry = True
+                    _retry_counter_name = 'remaining_retries_testcase'
 
         # Update the task info
         res = self._update_task(
