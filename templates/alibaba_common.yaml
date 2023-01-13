@@ -14,6 +14,7 @@ VM:
     vm_name: 
     az: cn-beijing-g
     region: cn-beijing
+    ddh_id:
 Image:
     name: RHEL-8.5.0-20210816.n.0
     id: m-2zefh7tct9op6zihzudd
