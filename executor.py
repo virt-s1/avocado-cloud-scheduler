@@ -666,6 +666,8 @@ class TestExecutor():
         else:
             LOG.debug(f'Get user config "log_path": {log_path}')
 
+        if not os.path.exists(log_path):
+            os.mkdir(log_path)
         self.log_path = log_path
 
     def _run(self, flavor):
