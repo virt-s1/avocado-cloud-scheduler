@@ -90,7 +90,7 @@ if [ "$?" != "0" ]; then
         echo "$(basename $0): Failed to run Aliyun API." >&2
         exit 1
     fi
-else
-    echo $x
-    exit 0
 fi
+
+echo $x
+exit 0
