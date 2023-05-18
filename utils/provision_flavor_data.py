@@ -74,14 +74,15 @@ def extract_info(spec):
         info['disk_type'] = spec.get('LocalStorageCategory')
 
     # Some special families use NVMe driver for local disks
-    _families = ['ecs.i3', 'ecs.i3g', 'ecs.i4', 'ecs.i4g']
+    _families = ['ecs.i3', 'ecs.i3g', 'ecs.i4', 'ecs.i4g', 'ecs.d3s']
     if spec.get('InstanceTypeFamily') in _families:
         info['local_disk_driver'] = 'nvme'
     else:
         info['local_disk_driver'] = 'virtio_blk'
 
     # Some special families use NVMe driver for cloud disks
-    _families = ['ecs.g7se', 'ecs.ebmg7se', 'ecs.g8y', 'ecs.c8y', 'ecs.r8y']
+    _families = ['ecs.g7se', 'ecs.ebmg7se', 'ecs.g8y', 'ecs.c8y', 'ecs.r8y', 'ecs.g8i', 'ecs.c8i', 'ecs.r8i', \
+                 'ecs.g8a', 'ecs.g8ae']
     if spec.get('InstanceTypeFamily') in _families:
         info['cloud_disk_driver'] = 'nvme'
     else:
