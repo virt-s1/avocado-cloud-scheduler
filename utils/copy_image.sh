@@ -129,7 +129,14 @@ if [ "$quiet" != "true" ]; then
     fi
 fi
 
-# # Copy
+# Delete the existing destination image
+to_image_id=$($codepath/query_images.sh -r $to_region | grep $to_image_name | awk '{print $2}')
+if [ ! -z $to_image_id ]; then
+    echo "The destination image is exist and will be deleted..."
+    aliyun --endpoint $(region_to_endpoint $region) ecs DeleteImage --ImageId $to_image_id --RegionId $to_region
+fi
+
+# Copy
 x=$(aliyun --endpoint $(region_to_endpoint $region) ecs CopyImage \
     --RegionId $region --ImageId $image_id \
     --DestinationRegionId $to_region --DestinationImageName $to_image_name \
