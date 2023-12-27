@@ -143,7 +143,8 @@ fi
 if [ ! -z "$image_name" ]; then
 	echo "$(basename $0): Getting Image ID for '$image_name' in the '$region_id' region." >&2
 	image_id=$(image_name_to_id $image_name $region_id)
-
+	#Sometimes need to specify the image id for marketplace image
+	#image_id="m-bp142rsdl5rvzscsjlqm"
 	if [ -z "$image_id" ]; then
 	    image_id=$(./utils/query_images.sh -r $region_id -M | grep $image_name | awk '{print $2}')
 		echo "marketplace image id: $image_id"
@@ -154,7 +155,11 @@ if [ ! -z "$image_name" ]; then
 		rhel_ver=$(echo $image_name | awk -F '_' '{print $5}')
 	else
 		echo "private image id: $image_id"
-		rhel_ver=$(echo $image_name | sed 's/.*[A-Za-z][._-]\([0-9]\)[._-]\([0-9]\)[._-].*/\1.\2/')
+		#rhel_ver=$(echo $image_name | sed 's/.*[A-Za-z][._-]\([0-9]\)[._-]\([0-9]\)[._-].*/\1.\2/')
+		rhel_major_ver=$(echo $image_name | sed 's/-/_/g;s/\./_/g'| awk -F '_' '{print $2}')
+		rhel_minor_ver=$(echo $image_name | sed 's/-/_/g;s/\./_/g'| awk -F '_' '{print $3}')
+		rhel_ver=\'$rhel_major_ver.$rhel_minor_ver\'
+		echo "rhel version: $rhel_ver"
 	fi
 
 #	if [[ $image_name =~ ^RHEL- ]]; then

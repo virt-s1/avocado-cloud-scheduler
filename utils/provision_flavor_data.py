@@ -82,7 +82,8 @@ def extract_info(spec):
 
     # Some special families use NVMe driver for cloud disks
     _families = ['ecs.g7se', 'ecs.ebmg7se', 'ecs.g8y', 'ecs.c8y', 'ecs.r8y', 'ecs.g8i', 'ecs.c8i', 'ecs.r8i', \
-                 'ecs.g8a', 'ecs.g8ae']
+                 'ecs.g8a', 'ecs.g8ae', 'ecs.hfg8i', 'ecs.hfr8i', 'ecs.hfc8i', 'ecs.g8ise', 'ecs.c8ise', \
+                 'ecs.r8ise']
     if spec.get('InstanceTypeFamily') in _families:
         info['cloud_disk_driver'] = 'nvme'
     else:
@@ -94,7 +95,8 @@ def extract_info(spec):
         info['memory'] = int(info['memory'] * 0.5)
 
     _families = ['ecs.ebmg6a', 'ecs.ebmc6a', 'ecs.ebmr6a', 'ecs.ebmg7a', 'ecs.ebmc7a', 'ecs.ebmr7a', \
-        'ecs.g6t', 'ecs.c6t', 'ecs.r6t', 'ecs.g7t', 'ecs.c7t', 'ecs.r7t']
+        'ecs.g6t', 'ecs.c6t', 'ecs.r6t', 'ecs.g7t', 'ecs.c7t', 'ecs.r7t', 'ecs.g6r', 'ecs.c6r', \
+        'ecs.g8y', 'ecs.c8y', 'ecs.r8y']
     if spec.get('InstanceTypeFamily') in _families:
         info['boot_mode'] = 'uefi'
     else:
