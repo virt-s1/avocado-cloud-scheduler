@@ -518,6 +518,7 @@ class ConfigAssistant():
             LOG.error('The image name (test.image_name) is not specified.')
             exit(1)
 
+        self.ddh_id = _test.get('ddh_id')
         self.provider = _test.get('provider')
         self.testcases = _test.get('testcases')
 
@@ -604,6 +605,8 @@ class ConfigAssistant():
         cmd = f'{exec} -f {file} -i {access_key_id} -s {access_key_secret} \
             -k {self.keypair} -z {azone} -m {self.image_name} \
             -l {container_name}'
+        if self.ddh_id:
+            cmd = cmd + f' -d {self.ddh_id}'
 
         LOG.debug(f'Update "{file}" by command "{cmd}".')
         res = subprocess.run(cmd, shell=True)
