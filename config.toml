@@ -33,6 +33,7 @@ identity_file = "/home/cheshi/.pem/cheshi-docker.pem"
 image_name = "redhat_8_5_x64_20G_alibase_20211117_copied.qcow2"
 
 ssh_keypair = "cheshi-docker"
+#ddh_id = ""
 
 testcases = """
 test_functional_lifecycle.py:LifeCycleTest.test_create_vm_password

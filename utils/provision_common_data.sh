@@ -6,14 +6,14 @@
 function show_usage() {
 	echo "Provision the common data for testing."
 	echo "$(basename $0) [-h] [-f file] [-i access-key-id] \
-[-s access-key-secret] [-k keypair] [-z az-id] [-m image-name] [-l label]"
+[-s access-key-secret] [-k keypair] [-z az-id] [-m image-name] [-l label] [-d ddh-id]"
 	echo "Example:"
 	echo "$(basename $0) -f ./alibaba_common.yaml"
 	echo "$(basename $0) -z cn-beijing-g"
 	echo "$(basename $0) -m RHEL-8.3.0-20200811.0"
 }
 
-while getopts :hf:i:s:k:z:m:l: ARGS; do
+while getopts :hf:i:s:k:z:m:l:d: ARGS; do
 	case $ARGS in
 	h)
 		# Help
@@ -47,6 +47,10 @@ while getopts :hf:i:s:k:z:m:l: ARGS; do
 	l)
 		# label
 		label=$OPTARG
+		;;
+	d)
+		# ddh-id
+		ddh_id=$OPTARG
 		;;
 	"?")
 		echo "$(basename $0): unknown option: $OPTARG" >&2
@@ -202,6 +206,11 @@ write_data $file NIC.nic_name $nic_name
 
 write_data $file VM.az $az_id
 write_data $file VM.region $region_id
+
+if [ ! -z $ddh_id ]; then
+    write_data $file VM.ddh_id $ddh_id
+fi
+
 write_data $file Network.VSwitch.id $vsw_id
 write_data $file SecurityGroup.id $sg_id
 
