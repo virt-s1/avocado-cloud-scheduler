@@ -383,18 +383,18 @@ Possible AZs: {possible_azones} Enabled regions: {self.enabled_regions}''')
             return 3
 
         # Get occupied AZs and filter them out
-        occupied_azones = self.get_occupied_azones(azones=eligible_azones)
-        available_azones = [
-            x for x in eligible_azones if x not in occupied_azones]
+#         occupied_azones = self.get_occupied_azones(azones=eligible_azones)
+#         available_azones = [
+#             x for x in eligible_azones if x not in occupied_azones]
 
-        if not available_azones:
-            LOG.info(f'''All AZs enabled for "{flavor}" are occupied. \
-Please try again later! Information: Eligible Zones: {eligible_azones} \
-Occupied Zone: {occupied_azones}''')
-            return 4
+#         if not available_azones:
+#             LOG.info(f'''All AZs enabled for "{flavor}" are occupied. \
+# Please try again later! Information: Eligible Zones: {eligible_azones} \
+# Occupied Zone: {occupied_azones}''')
+#             return 4
 
         # Randomly pick an AZ
-        azone = self.random_pick_azone(available_azones)
+        azone = self.random_pick_azone(eligible_azones)
         LOG.info(f'Picked AZ "{azone}" for flavor "{flavor}" '
                  f'from "{possible_azones}".')
 
