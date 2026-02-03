@@ -81,16 +81,21 @@ def extract_info(spec):
         info['local_disk_driver'] = 'virtio_blk'
 
     # Some special families use NVMe driver for cloud disks
-    _families = ['ecs.g7se', 'ecs.ebmg7se', 'ecs.g8y', 'ecs.c8y', 'ecs.r8y', 'ecs.g8i', 'ecs.c8i', 'ecs.r8i', \
-                 'ecs.g8a', 'ecs.c8a', 'ecs.r8a', 'ecs.g8ae', 'ecs.c8ae', 'ecs.r8ae', 'ecs.hfg8i', 'ecs.hfr8i', \
-                 'ecs.hfc8i', 'ecs.g8ise', 'ecs.c8ise', 'ecs.r8ise', 'ecs.ebmg8y', 'ecs.ebmc8y', 'ecs.ebmr8y', \
-                 'ecs.ebmg8i', 'ecs.ebmc8i', 'ecs.ebmhfc8i', 'ecs.ebmhfg8i', 'ecs.ebmhfr8i', 'ecs.ebmc8a', \
-                 'ecs.ebmg8a', 'ecs.ebmr8a', 'ecs.ebmc8ae', 'ecs.ebmg8ae', 'ecs.ebmr8ae', 'ecs.g9i', 'ecs.c9i', \
-                 'ecs.r9i', 'ecs.g9a', 'ecs.c9a', 'ecs.r9a', 'ecs.g9ae', 'ecs.c9ae', 'ecs.r9ae', 'ecs.g9as', \
-                 'ecs.g9a-flex', 'ecs.c9a-flex']
-    if spec.get('InstanceTypeFamily') in _families:
+    # _families = ['ecs.g7se', 'ecs.ebmg7se', 'ecs.g8y', 'ecs.c8y', 'ecs.r8y', 'ecs.g8i', 'ecs.c8i', 'ecs.r8i', \
+    #              'ecs.g8a', 'ecs.c8a', 'ecs.r8a', 'ecs.g8ae', 'ecs.c8ae', 'ecs.r8ae', 'ecs.hfg8i', 'ecs.hfr8i', \
+    #              'ecs.hfc8i', 'ecs.g8ise', 'ecs.c8ise', 'ecs.r8ise', 'ecs.ebmg8y', 'ecs.ebmc8y', 'ecs.ebmr8y', \
+    #              'ecs.ebmg8i', 'ecs.ebmc8i', 'ecs.ebmhfc8i', 'ecs.ebmhfg8i', 'ecs.ebmhfr8i', 'ecs.ebmc8a', \
+    #              'ecs.ebmg8a', 'ecs.ebmr8a', 'ecs.ebmc8ae', 'ecs.ebmg8ae', 'ecs.ebmr8ae', 'ecs.g9i', 'ecs.c9i', \
+    #              'ecs.r9i', 'ecs.g9a', 'ecs.c9a', 'ecs.r9a', 'ecs.g9ae', 'ecs.c9ae', 'ecs.r9ae', 'ecs.g9as', \
+    #              'ecs.g9a-flex', 'ecs.c9a-flex']
+    # if spec.get('InstanceTypeFamily') in _families:
+    #     info['cloud_disk_driver'] = 'nvme'
+    # else:
+    #     info['cloud_disk_driver'] = 'virtio_blk'
+    if spec.get('NvmeSupport') == 'required':
         info['cloud_disk_driver'] = 'nvme'
     else:
+        # spec.get('NvmeSupport') == 'unsupported'
         info['cloud_disk_driver'] = 'virtio_blk'
 
     # Some security-enhanced instance families have 50% encrypted memory
@@ -98,20 +103,24 @@ def extract_info(spec):
     if spec.get('InstanceTypeFamily') in _families:
         info['memory'] = int(info['memory'] * 0.5)
 
-    _families = ['ecs.ebmg6a', 'ecs.ebmc6a', 'ecs.ebmr6a', 'ecs.ebmg7a', 'ecs.ebmc7a', 'ecs.ebmr7a', \
-        'ecs.g6t', 'ecs.c6t', 'ecs.r6t', 'ecs.g7t', 'ecs.c7t', 'ecs.r7t', 'ecs.g6r', 'ecs.c6r', \
-        'ecs.g8y', 'ecs.c8y', 'ecs.r8y', 'ecs.ebmg8y','ecs.ebmc8y', 'ecs.ebmr8y']
-    if spec.get('InstanceTypeFamily') in _families:
-        info['boot_mode'] = 'uefi'
-    else:
-        info['boot_mode'] = 'bios'
+    # _families = ['ecs.ebmg6a', 'ecs.ebmc6a', 'ecs.ebmr6a', 'ecs.ebmg7a', 'ecs.ebmc7a', 'ecs.ebmr7a', \
+    #     'ecs.g6t', 'ecs.c6t', 'ecs.r6t', 'ecs.g7t', 'ecs.c7t', 'ecs.r7t', 'ecs.g6r', 'ecs.c6r', \
+    #     'ecs.g8y', 'ecs.c8y', 'ecs.r8y', 'ecs.ebmg8y','ecs.ebmc8y', 'ecs.ebmr8y']
+    # if spec.get('InstanceTypeFamily') in _families:
+    #     info['boot_mode'] = 'uefi'
+    # else:
+    #     info['boot_mode'] = 'bios'
 
-    _families = ['ecs.g6r', 'ecs.c6r', 'ecs.g8y', 'ecs.c8y', 'ecs.r8y', 'ecs.ebmg8y', \
-                 'ecs.ebmc8y', 'ecs.ebmr8y']
-    if spec.get('InstanceTypeFamily') in _families:
-        info['arch'] = 'aarch64'
-    else:
+    # _families = ['ecs.g6r', 'ecs.c6r', 'ecs.g8y', 'ecs.c8y', 'ecs.r8y', 'ecs.ebmg8y', \
+    #              'ecs.ebmc8y', 'ecs.ebmr8y']
+    # if spec.get('InstanceTypeFamily') in _families:
+    #     info['arch'] = 'aarch64'
+    # else:
+    #     info['arch'] = 'x86_64'
+    if spec.get('CpuArchitecture') == 'X86':
         info['arch'] = 'x86_64'
+    elif spec.get('CpuArchitecture') == 'ARM':
+        info['arch'] = 'aarch64'
 
     return info
 
