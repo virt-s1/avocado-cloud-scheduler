@@ -195,8 +195,8 @@ if [ -z "$cloud_disk_size" ]; then
 fi
 
 # Provision data
-write_data $file Credential.access_key_id $access_key_id
-write_data $file Credential.secretaccess_key $access_key_secret
+write_data $file Credential.access_key_id $(echo -n "$access_key_id" | base64 -w 0)
+write_data $file Credential.secretaccess_key $(echo -n "$access_key_secret" | base64 -w 0)
 
 write_data $file VM.keypair $keypair
 
